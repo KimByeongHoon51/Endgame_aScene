@@ -32,6 +32,12 @@ td.chg input,td.chg select{background:var(--chg);border-color:var(--gold)}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
 .grid table{width:100%}
 .W{color:var(--red)}.R{color:var(--blue)}
+.simctl>div{margin:6px 0}
+.simctl label{margin-right:10px;white-space:nowrap;cursor:pointer}
+.simctl input[type=checkbox]{width:auto;vertical-align:middle}
+#simOut td{min-width:150px;vertical-align:top}
+#simOut td small{display:block;color:var(--dim);font-size:12px}
+.ok{color:#7dff5a}.short{color:#ffcf3a}.long{color:#ff8a8a}
 </style>
 </head>
 <body>
@@ -47,6 +53,20 @@ td.chg input,td.chg select{background:var(--chg);border-color:var(--gold)}
 <main>
   <p class="note">값을 바꾸고 <b>저장</b>하면 같은 브라우저의 게임에 바로 적용됩니다 (게임 새로고침). 노란 칸 = 기본값과 다른 값. 확정한 값은 <b>balance.js 내보내기</b>로 받은 파일을 게임 폴더의 balance.js와 바꾸면 기본값이 됩니다. 파란 글씨는 자동 계산값입니다.</p>
   <div id="root"></div>
+  <section id="simSec">
+    <h2>전략 시뮬레이터</h2>
+    <p class="note">위 표의 <b>편집 중인 수치</b>(저장 안 해도 됨)로 게임을 자동 플레이해 전략별 승률과 클리어 시간을 잽니다. 캡틴은 봇이 움직이고 방패·번개는 쓸 수 있을 때 바로 씁니다. 건틀릿은 보스가 있을 때 사용.<br>
+    물량형(싼 유닛·전사만·원거리만)은 살 수 있는 것을 바로 생산, 저축형(비싼 유닛·직접 고르기)은 목록 순서대로 식량을 모아 생산합니다. 각 스테이지에서 해금된 유닛만 씁니다.</p>
+    <div class="simctl">
+      <div><b>스테이지</b> <span id="simStages"></span></div>
+      <div><b>전략</b> <span id="simStrats"></span></div>
+      <div><b>직접 고르기 유닛</b> <span id="simUnits"></span></div>
+      <div>판 수 <input id="simN" type="number" value="5" min="1"> · 목표 시간 <input id="tMin" type="number" value="120">~<input id="tMax" type="number" value="180">초 · 시간 제한 <input id="maxT" type="number" value="400">초 ·
+        <label><input type="checkbox" id="simGauge" style="width:auto"> 건틀릿 게이지 100%로 시작</label></div>
+      <div><button class="main" id="simRun">시뮬레이션 실행</button> <button id="simStop">중지</button> <span id="simProg"></span></div>
+    </div>
+    <div class="wrap" id="simOut"></div>
+  </section>
 </main>
 <script src="balance.js"></script>
 <script>
@@ -86,11 +106,21 @@ function build(){
   h+='</div></section>';
   // 유닛
   const uk=['name','cls','cost','cd','hp','atk','rate','range','spd','aoe','slow','multi','unlock'];
-  h+='<section><h2>어벤져스 유닛</h2><p class="note">카드 순서 = 숫자키 1~9. 해금 스테이지 1 = 처음부터. 범위 반경·둔화·동시 공격은 0이면 없음 (공격 방식 자체는 코드에 고정: 헐크·스트레인지 범위, 스파이더맨 둔화, 스칼렛 위치 동시 공격).</p><div class="wrap"><table><tr>'+
-    uk.map(k=>`<th>${L[k]}</th>`).join('')+'<th>DPS<small>공격력÷간격×동시</small></th><th>DPS/식량</th><th>체력/식량</th></tr>';
-  B.units.forEach((u,i)=>{const dps=u.atk/u.rate*(u.multi||1);
+  // 효율 지표: 전투력 = 체력×DPS, 첫 번째 유닛(호크아이)을 기준 1로
+  const pw=u=>u.hp*u.atk/u.rate*(u.multi||1),ref=B.units[0],refP=pw(ref);
+  h+='<section><h2>어벤져스 유닛</h2><p class="note">카드 순서 = 숫자키 1~9. 해금 스테이지 1 = 처음부터. 범위 반경·둔화·동시 공격은 0이면 없음 (공격 방식 자체는 코드에 고정: 헐크·스트레인지 범위, 스파이더맨 둔화, 스칼렛 위치 동시 공격).</p>'+
+    `<p class="note"><b>효율 지표</b> — 전투력 = 체력×DPS, 기준 = ${ref.name}(=1). <b>효율 A</b> = 전투력÷비용 (근접전처럼 한 줄로 싸울 때), <b>효율 B</b> = 전투력÷비용² (원거리처럼 다 같이 쏠 때 — 싼 유닛을 많이 뽑으면 제곱으로 강해짐).<br>
+    비용이 기준의 k배면 전투력은 기준의 <b>k배~k²배</b>가 적정 (근접 전사는 k배 쪽, 원거리는 k² 쪽). 범위·둔화·사거리 같은 특수 능력이 있으면 「약함」이어도 정상일 수 있음 → 아래 시뮬레이터로 확인.</p><div class="wrap"><table><tr>`+
+    uk.map(k=>`<th>${L[k]}</th>`).join('')+'<th>DPS<small>공격력÷간격×동시</small></th><th>전투력<small>체력×DPS</small></th><th>효율 A<small>÷비용</small></th><th>효율 B<small>÷비용²</small></th><th>적정 판정<small>k배~k²배 중 위치</small></th></tr>';
+  B.units.forEach((u,i)=>{const dps=u.atk/u.rate*(u.multi||1),p=pw(u),k=u.cost/ref.cost,ea=p/u.cost/(refP/ref.cost),eb=p/u.cost/u.cost/(refP/ref.cost/ref.cost);
+    const lo=refP*k,hi=refP*k*k;let verdict;
+    if(i===0)verdict='<span style="color:var(--dim)">기준</span>';
+    else if(p<lo)verdict=`<span style="color:#ff8a8a">약함 ▼ 하한의 ${r1(p/lo)}배</span>`;
+    else if(p>hi)verdict=`<span style="color:#ffcf3a">강함 ▲ 상한의 ${r1(p/hi)}배</span>`;
+    else verdict=`<span style="color:#7dff5a">적정 ${Math.round(Math.log(p/lo)/Math.log(hi/lo||1)*100)||0}%</span>`;
+    const sp=[u.aoe?'범위':'',u.slow?'둔화':'',u.multi>1?'동시':'',u.range>150?'원거리':''].filter(Boolean).join('·');
     h+='<tr>'+uk.map(k=>k==='cls'?sel(u.cls,['units',i,'cls'],[['W','전사'],['R','원거리']]):inp(u[k],['units',i,k],k==='name')).join('')+
-      `<td class="calc">${r1(dps)}</td><td class="calc">${r1(dps/u.cost)}</td><td class="calc">${r1(u.hp/u.cost)}</td></tr>`});
+      `<td class="calc">${r1(dps)}</td><td class="calc">${Math.round(p).toLocaleString()}</td><td class="calc">${r1(ea)}</td><td class="calc">${Math.round(eb*100)/100}</td><td>${verdict}${sp?`<small style="display:block;color:var(--dim)">${sp}</small>`:''}</td></tr>`});
   h+='</table></div></section>';
   // 적
   const fk=['name','hp','atk','rate','range','spd','aoe','food','gauge'],FN={outrider:'잡몹',chitauri:'잡몹',brute:'잡몹',cull:'보스 1',proxima:'보스 2',corvus:'보스 3',ebony:'보스 4',thanos:'최종 보스'};
@@ -120,6 +150,52 @@ document.getElementById('export').onclick=()=>{
   const body='// Endgame_aScene 밸런스 테이블\n// balance.html에서 수정 → \'저장\'하면 같은 브라우저의 게임에 바로 적용, \'balance.js 내보내기\'로 이 파일을 교체하면 기본값이 됨\nwindow.BALANCE_DEFAULT = '+JSON.stringify(B,null,2)+';\n';
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([body],{type:'text/javascript'}));a.download='balance.js';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);flash('balance.js 내려받음')};
 build();
+
+// ───────── 전략 시뮬레이터 ─────────
+// 게임(index.html#simhost)을 숨은 프레임으로 불러 편집 중인 수치(window.SIM_BAL)로 한 판씩 계산
+const STRATS=[{kind:'random',name:'무작위 혼합'},{kind:'cheap',name:'싼 유닛 물량',tip:'해금된 가장 싼 2종'},{kind:'rich',name:'비싼 유닛 저축',tip:'해금된 가장 비싼 2종'},
+  {kind:'W',name:'전사만'},{kind:'R',name:'원거리만'},{kind:'custom',name:'직접 고르기'}];
+const $=id=>document.getElementById(id);
+const chk=(name,val,label,on,tip)=>`<label ${tip?`title="${tip}"`:''}><input type="checkbox" name="${name}" value="${val}" ${on?'checked':''}> ${label}</label>`;
+$('simStages').innerHTML=B.stages.map((s,i)=>chk('st',i,s.name,true)).join('');
+$('simStrats').innerHTML=STRATS.map((s,i)=>chk('sg',i,s.name+(s.tip?` <small style="color:var(--dim)">(${s.tip})</small>`:''),i<3)).join('');
+$('simUnits').innerHTML=B.units.map(u=>chk('su',u.id,u.name,u.id==='panther'||u.id==='wanda')).join('');
+const checked=n=>[...document.querySelectorAll(`input[name=${n}]:checked`)].map(e=>e.value);
+let simStop=false,simBusy=false;
+$('simStop').onclick=()=>{simStop=true};
+const tick=()=>new Promise(r=>setTimeout(r,0));
+function loadEngine(){return new Promise((res,rej)=>{const old=$('simFrame');if(old)old.remove();
+  const f=document.createElement('iframe');f.id='simFrame';f.style.cssText='position:absolute;width:320px;height:180px;left:-9999px;top:0';
+  f.onload=()=>f.contentWindow.simGame?res(f.contentWindow):rej(new Error('게임을 불러오지 못했어요'));f.src='index.html?sim='+Date.now()+'#simhost';document.body.appendChild(f)})}
+const med=a=>{const s=[...a].sort((x,y)=>x-y);return s.length?s[s.length>>1]:null};
+const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:0;
+function cell(rs,tMin,tMax){
+  if(!rs.length)return '<td>…</td>';
+  if(!rs[0].units.length&&rs[0].kind!=='random')return '<td><small>이 스테이지에 해금된 유닛 없음</small></td>';
+  const wins=rs.filter(r=>r.win),ts=wins.map(r=>r.t),m=med(ts);
+  const cls=m==null?'long':m<tMin?'short':m>tMax?'long':'ok',lab=m==null?'':m<tMin?' 짧음':m>tMax?' 김':' 목표 안';
+  return `<td><b class="${wins.length===rs.length?'ok':wins.length?'short':'long'}">승 ${wins.length}/${rs.length}</b>`+
+    (m!=null?` · <span class="${cls}">${Math.round(m)}초${lab}</span><small>${Math.round(Math.min(...ts))}~${Math.round(Math.max(...ts))}초</small>`:'')+
+    `<small>건물 ${Math.round(avg(rs.map(r=>r.base))*100)}% · 생산 ${Math.round(avg(rs.map(r=>r.spawned)))}명 · 식량 넘침 ${Math.round(avg(rs.map(r=>r.over)))}초${avg(rs.map(r=>r.snaps))>0?' · 건틀릿 '+r1(avg(rs.map(r=>r.snaps)))+'회':''}</small>`+
+    (rs[0].units.length?`<small>${rs[0].units.join('·')}</small>`:'')+'</td>';
+}
+$('simRun').onclick=async()=>{
+  if(simBusy)return;const stages=checked('st').map(Number),strats=checked('sg').map(i=>STRATS[i]),N=Math.max(1,+$('simN').value||1);
+  const tMin=+$('tMin').value,tMax=+$('tMax').value,opt={gauge:$('simGauge').checked,maxT:+$('maxT').value||400},ids=checked('su');
+  if(!stages.length||!strats.length){$('simProg').textContent='스테이지와 전략을 하나 이상 고르세요';return}
+  simBusy=true;simStop=false;window.SIM_BAL=clone(B);$('simProg').textContent='게임 엔진 불러오는 중…';
+  let eng;try{eng=await loadEngine()}catch(e){$('simProg').textContent=e.message;simBusy=false;return}
+  const R=strats.map(()=>stages.map(()=>[]));
+  const draw=()=>{$('simOut').innerHTML='<table><tr><th>전략</th>'+stages.map(i=>`<th>${B.stages[i].name}<small>${B.stages[i].sub}</small></th>`).join('')+'</tr>'+
+    strats.map((s,a)=>`<tr><td class="k">${s.name}</td>${stages.map((si,b)=>cell(R[a][b],tMin,tMax)).join('')}</tr>`).join('')+'</table>'};
+  const total=strats.length*stages.length*N;let done=0;const t0=performance.now();
+  outer:for(let a=0;a<strats.length;a++)for(let b=0;b<stages.length;b++)for(let n=0;n<N;n++){
+    if(simStop)break outer;
+    const S={kind:strats[a].kind,ids};const r=eng.simGame(stages[b],S,opt);r.kind=S.kind;R[a][b].push(r);done++;
+    $('simProg').textContent=`${done}/${total}판 진행 중…`;if(done%2===0)draw();await tick();
+  }
+  draw();$('simProg').textContent=(simStop?'중지됨 — ':'완료 — ')+`${done}판, ${r1((performance.now()-t0)/1000)}초 걸림. 초록 = 목표 시간 안, 노랑 = 짧음, 빨강 = 김/패배`;simBusy=false;
+};
 </script>
 </body>
 </html>

@@ -36,6 +36,9 @@ const DBG={stage:+HASH.get('stage')||0,sim:+HASH.get('sim')||0,bot:HASH.has('bot
 function mergeB(d,o){if(o==null)return d;if(Array.isArray(d))return d.map((x,i)=>mergeB(x,o[i]));if(d&&typeof d==='object'){const r={};for(const k in d)r[k]=mergeB(d[k],o[k]);return r}return typeof o===typeof d?o:d}
 let BAL=window.BALANCE_DEFAULT,balCustom=false;
 try{const s=localStorage.getItem('endgame_balance');if(s&&!HASH.has('nobal')){BAL=mergeB(BAL,JSON.parse(s));balCustom=true}}catch(e){}
+// balance.html 전략 시뮬레이터가 숨은 프레임으로 부를 때(#simhost): 편집 중인 수치로 계산, 소리·저장 없음
+const SIMHOST=HASH.has('simhost');
+if(SIMHOST){DBG.sim=1;try{if(parent.SIM_BAL)BAL=mergeB(window.BALANCE_DEFAULT,parent.SIM_BAL)}catch(e){}}
 // 그림·공격 방식은 코드에 고정, 수치는 밸런스 테이블에서
 const VIS={hawkeye:{shot:'arrow'},thor:{},ironman:{shot:'beam',fly:1},warmachine:{shot:'gun'},hulk:{sc:1.5},spiderman:{shot:'web'},strange:{shot:'orb'},panther:{},wanda:{shot:'chaos'},
   outrider:{role:'mob'},chitauri:{role:'mob',shot:'bolt'},brute:{role:'mob',sc:1.45},
@@ -51,7 +54,7 @@ const SKILLS=[{id:'shield',name:'방패 던지기',key:'Q',cd:BAL.shield.cd},{id
 const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),lerp=(a,b,t)=>a+(b-a)*t,ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
 function pickW(pool){let s=0;for(const k in pool)s+=pool[k];let r=Math.random()*s;for(const k in pool){r-=pool[k];if(r<=0)return k}return Object.keys(pool)[0]}
 function lsGet(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}}
-function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+function lsSet(k,v){if(DBG.sim)return;try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 let cleared=lsGet('endgame_cleared',0);
 // 스테이지 입장 시 이월되는 건틀릿 게이지 — gaugeAt[i] = i스테이지 시작 게이지 (재도전으로 게이지를 불릴 수 없게)
 let gaugeAt=lsGet('endgame_gaugeAt',[0]);
@@ -348,7 +351,7 @@ function newGame(si){
   const st=STAGES[si];
   G={si,st,t:0,food:DBG.food||BAL.food.start,foodMax:BAL.food.max,foodRate:st.foodRate,allies:[],enemies:[],projs:[],fx:[],parts:[],texts:[],says:[],
     gauge:DBG.gauge?BAL.gaunt.need:(gaugeAt[si]||0),skill:{shield:0,thunder:0},ucd:UNITS.map(()=>0),spawnT:4,beam:0,flash:0,shake:0,
-    kills:0,end:0,result:null,botT:0,resT:0,newUnits:[],snaps:0,
+    kills:0,end:0,result:null,botT:0,resT:0,newUnits:[],snaps:0,spawned:0,sCyc:0,
     pool:{outrider:st.outrider,chitauri:st.chitauri,brute:st.brute},
     base:{struct:1,x:BASE_X,y:GROUND,hp:BAL.base.hp,max:BAL.base.hp,hit:0},
     ship:st.boss==='thanos'?null:{struct:1,ship:1,x:SHIP_X,y:GROUND,hp:st.shipHp,max:st.shipHp,hit:0},
@@ -475,7 +478,7 @@ function useSkill(i){
 function spawnUnit(i){
   if(STATE!=='play'||paused||help||G.end>0||G.intro>0)return;const d=UNITS[i];
   if(!isUnlocked(d,G.si)||G.ucd[i]>0||G.food<d.cost||G.allies.length>=40){sfx('no');return}
-  G.food-=d.cost;G.ucd[i]=d.cd;const u=mkUnit(d,'A',BASE_X+10);G.allies.push(u);sfx('spawn');
+  G.food-=d.cost;G.ucd[i]=d.cd;G.spawned++;const u=mkUnit(d,'A',BASE_X+10);G.allies.push(u);sfx('spawn');
 }
 
 // ───────── 갱신 ─────────
@@ -559,15 +562,42 @@ function updateFx(dt){
   for(const u of[...G.allies,...G.enemies])if(u.dead)u.deadT-=dt;
   G.flash=Math.max(0,G.flash-dt);G.shake=Math.max(0,G.shake-dt);
 }
+// ───────── 전략 시뮬레이터 (balance.html에서 호출) ─────────
+// kind: random(무작위 혼합) / cheap(해금된 가장 싼 2종 물량) / rich(가장 비싼 2종 저축) / W(전사만) / R(원거리만) / custom(고른 유닛을 순서대로)
+let SIM_STRAT=null;
+function stratUnits(S,si){
+  const av=UNITS.map((u,i)=>i).filter(i=>isUnlocked(UNITS[i],si)),byCost=[...av].sort((a,b)=>UNITS[a].cost-UNITS[b].cost);
+  switch(S.kind){
+    case 'cheap':return byCost.slice(0,2);
+    case 'rich':return byCost.slice(-2).reverse();
+    case 'W':case 'R':return av.filter(i=>UNITS[i].cls===S.kind);
+    case 'custom':return av.filter(i=>S.ids.includes(UNITS[i].id));
+  }
+  return av;
+}
+// 물량형(cheap·W·R)은 살 수 있는 것 중 가장 비싼 것부터, 저축형(rich·custom)은 목록 순서대로 식량을 모아서 생산
+function stratPick(S){
+  const list=G.sList||(G.sList=stratUnits(S,G.si));if(!list.length)return null;
+  if(S.kind==='rich'||S.kind==='custom'){
+    for(let k=0;k<list.length;k++){const i=list[G.sCyc%list.length];if(G.ucd[i]>0){G.sCyc++;continue}if(G.food>=UNITS[i].cost){G.sCyc++;return i}return null}
+    return null}
+  const ok=list.filter(i=>G.ucd[i]<=0&&G.food>=UNITS[i].cost).sort((a,b)=>UNITS[b].cost-UNITS[a].cost);return ok.length?ok[0]:null;
+}
+window.simGame=function(si,S,opt){
+  SIM_STRAT=S;DBG.bot=true;newGame(si);G.gauge=opt.gauge?BAL.gaunt.need:0;
+  let over=0;while(G.t<opt.maxT&&STATE==='play'){step(STEP);if(G.food>=G.foodMax)over+=STEP}
+  return{win:G.result==='clear',t:G.t,base:G.base.hp/G.base.max,spawned:G.spawned,over,snaps:G.snaps,kills:G.kills,units:(G.sList||[]).map(i=>UNITS[i].name)};
+};
 // 테스트용 자동 플레이 (#bot)
 function bot(dt){
   const c=G.cap,front=G.allies.filter(a=>!a.hero&&!a.dead).reduce((m,a)=>Math.max(m,a.x),c.x);
   let tx=clamp(front-150,220,600);if(c.hp<c.max*.5||G.enemies.some(e=>!e.dead&&isBoss(e)&&e.x-c.x<260))tx=Math.max(200,c.x-200);G.botMv=Math.abs(tx-c.x)<10?0:Math.sign(tx-c.x);
   G.botT-=dt;if(G.botT>0)return;G.botT=.4;
+  if(SIM_STRAT&&SIM_STRAT.kind!=='random'){const i=stratPick(SIM_STRAT);if(i!=null)spawnUnit(i)}else{
   const av=UNITS.map((u,i)=>i).filter(i=>isUnlocked(UNITS[i],G.si));
   const few=G.allies.filter(a=>!a.dead).length<6;if(few&&G.botWant!=null&&UNITS[G.botWant].cost>20)G.botWant=null;
   if(G.botWant==null||G.ucd[G.botWant]>0){const pool=few?av.filter(i=>UNITS[i].cost<=20):av.flatMap(i=>UNITS[i].cost>=20?[i,i]:[i]);G.botWant=pool[Math.floor(Math.random()*pool.length)]}
-  if(G.food>=UNITS[G.botWant].cost&&G.ucd[G.botWant]<=0){spawnUnit(G.botWant);G.botWant=null}
+  if(G.food>=UNITS[G.botWant].cost&&G.ucd[G.botWant]<=0){spawnUnit(G.botWant);G.botWant=null}}
   const near=G.enemies.filter(e=>!e.dead&&e.x-c.x>-100&&e.x-c.x<450);
   if(near.length)useSkill(0);
   if(near.length>=3||near.some(isBoss))useSkill(1);
