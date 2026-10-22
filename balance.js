@@ -41,7 +41,7 @@ window.BALANCE_DEFAULT = {
   },
   "debuff": {
     "slowMove": 50,
-    "slowAtk": 0
+    "slowAtk": 40
   },
   "units": [
     {
@@ -162,7 +162,7 @@ window.BALANCE_DEFAULT = {
       "cls": "W",
       "cost": 30,
       "cd": 5.6,
-      "hp": 300,
+      "hp": 400,
       "atk": 20,
       "rate": 0.6,
       "range": 34,
@@ -179,13 +179,13 @@ window.BALANCE_DEFAULT = {
       "cost": 100,
       "cd": 16,
       "hp": 280,
-      "atk": 22,
+      "atk": 30,
       "rate": 0.4,
       "range": 300,
       "spd": 60,
       "aoe": 0,
       "slow": 0,
-      "multi": 4,
+      "multi": 3,
       "unlock": 4
     }
   ],
