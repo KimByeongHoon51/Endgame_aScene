@@ -112,7 +112,7 @@ function pauseBgm(){wantBgm=false;if(ytReady)yt.pauseVideo()}
 
 // ───────── 그림 도구 (카툰: 굵은 외곽선) ─────────
 function P(c){ctx.fillStyle=c;ctx.fill();ctx.stroke()}
-function circ(x,y,r){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2)}
+function circ(x,y,r){ctx.beginPath();ctx.arc(x,y,Math.max(0,r),0,Math.PI*2)}
 function ell(x,y,rx,ry,rot){ctx.beginPath();ctx.ellipse(x,y,rx,ry,rot||0,0,Math.PI*2)}
 function rr(x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r)}
 function poly(pts){ctx.beginPath();ctx.moveTo(pts[0],pts[1]);for(let i=2;i<pts.length;i+=2)ctx.lineTo(pts[i],pts[i+1]);ctx.closePath()}
@@ -458,7 +458,7 @@ function findTarget(u){
 function foesInRange(u){const dir=u.side==='A'?1:-1,foes=u.side==='A'?G.enemies:G.allies;return foes.filter(e=>!e.dead&&(e.x-u.x)*dir>=-20&&(e.x-u.x)*dir<=u.def.range+reach(e)).sort((a,b)=>(a.x-u.x)*dir-(b.x-u.x)*dir)}
 function aoe(side,x,r,n,src){for(const e of(side==='A'?G.enemies:G.allies))if(!e.dead&&Math.abs(e.x-x)<=r+reach(e))dmg(e,n,src)}
 function attack(u,t){
-  const d=u.def,dir=u.face||(u.side==='A'?1:-1),sc=d.sc||1;u.atkT=.3;if(u.side==='A')ust(d.id).atks++;
+  const d=u.def,dir=u.face||(u.side==='A'?1:-1),sc=d.sc||1;u.atkT=u.atkD=.3;if(u.side==='A')ust(d.id).atks++;
   const hx=u.x+dir*16*sc,hy=u.y-(d.fly?44:28)*sc;
   if(d.multi){const list=foesInRange(u).slice(0,d.multi);if(!list.length)list.push(t);
     for(const e of list){dmg(e,d.atk,u);G.fx.push({k:'beam',x1:hx,y1:hy,x2:e.x,y2:tY(e),c:'#ff2d55',w:6,t:.3,T:.3})}sfx('chaos');return}
@@ -479,13 +479,13 @@ function attack(u,t){
 function spearThrow(u,dt){
   const d=u.def;u.throwT-=dt;if(u.throwT>0)return;
   if(!G.allies.some(a=>!a.dead&&u.x-a.x>=-20&&u.x-a.x<=d.throwRange))return;
-  u.throwT=d.throwCd;u.atkT=.5;sfx('whoosh');pop('창 던지기!',u.x,u.y-120,'#ffcf3a',28);
+  u.throwT=d.throwCd;u.atkT=u.atkD=.5;sfx('whoosh');pop('창 던지기!',u.x,u.y-120,'#ffcf3a',28);
   G.projs.push({k:'spear',x:u.x-20,y:u.y-46*(d.sc||1),dir:-1,dist:0,range:d.throwRange,pct:d.throwPct,hit:new Set(),src:u,ang:Math.PI});
 }
 function ebonyPush(u,dt){
   const d=u.def;u.pushT-=dt;if(u.pushT>0)return;
   const hit=G.allies.filter(a=>!a.dead&&u.x-a.x>=-20&&u.x-a.x<=d.pushRange);if(!hit.length)return;
-  u.pushT=d.pushCd;u.atkT=.5;sfx('push');pop('염력!',u.x,u.y-110,'#9fd8ff',28);
+  u.pushT=d.pushCd;u.atkT=u.atkD=.5;sfx('push');pop('염력!',u.x,u.y-110,'#9fd8ff',28);
   G.fx.push({k:'wave',x:u.x,y:u.y-40,r:d.pushRange,t:.5,T:.5});
   for(const a of hit){a.x=Math.max(BASE_X+20,a.x-d.push);a.stun=Math.max(a.stun,.5);a.hit=.15}
 }
@@ -593,7 +593,7 @@ function update(dt){
   // 타노스
   const th=G.thanos,TB=BAL.foes.thanos;
   if(th&&!th.dead&&!(th.wait>0)){th.slamT-=dt;
-    if(th.slamT<=0&&G.allies.some(a=>!a.dead&&th.x-a.x<TB.slamRange&&th.x-a.x>-40)){th.slamT=TB.slamCd;th.atkT=.5;G.shake=.6;sfx('smash');pop('쿠웅!',th.x-60,th.y-180,'#d9b3ff',34);
+    if(th.slamT<=0&&G.allies.some(a=>!a.dead&&th.x-a.x<TB.slamRange&&th.x-a.x>-40)){th.slamT=TB.slamCd;th.atkT=th.atkD=.5;G.shake=.6;sfx('smash');pop('쿠웅!',th.x-60,th.y-180,'#d9b3ff',34);
       G.fx.push({k:'smash',x:th.x-90,y:GROUND,r:TB.slamRange*.8,t:.5,T:.5});
       for(const a of G.allies){if(a.dead)continue;const d=th.x-a.x;if(d<TB.slamRange&&d>-40){dmg(a,TB.slamDmg,th);a.x=Math.max(BASE_X+20,a.x-TB.slamPush);a.stun=Math.max(a.stun,.6)}}}
     if(!th.half&&th.hp<th.max/2){th.half=1;say(th,'내가 직접 끝내주마.',2.4);for(let i=0;i<4;i++)spawnFoe('outrider')}}
@@ -679,7 +679,7 @@ function drawUnit(u,o){
   const d=u.def,f=u.hero?u.face:(u.face||(u.side==='A'?1:-1)),sc=d.sc||1;
   const lift=d.fly?18+Math.sin(u.anim*3)*3:0;
   ctx.save();if(u.dead)ctx.globalAlpha=Math.max(0,u.deadT/.5);if(u.dustK)ctx.globalAlpha=1-u.dustK;
-  drawChar(d.id,u.x,u.y,f,sc,u.anim,{walk:u.walk,atk:u.atkT>0?Math.sin(u.atkT/.3*Math.PI):0,hit:u.hit,lift,noShield:u.shieldOut||(o&&o.noShield),raise:u.raiseT>0,gaunt:u.gauntT>0,shout:o&&o.shout});
+  drawChar(d.id,u.x,u.y,f,sc,u.anim,{walk:u.walk,atk:u.atkT>0?Math.sin(Math.min(1,u.atkT/(u.atkD||.3))*Math.PI):0,hit:u.hit,lift,noShield:u.shieldOut||(o&&o.noShield),raise:u.raiseT>0,gaunt:u.gauntT>0,shout:o&&o.shout});
   ctx.restore();
   if(u.dead){if(u.hero&&u.deadT<=0)txt('부활까지 '+Math.ceil(u.reviveT)+'초',BASE_X+40,GROUND-40,18,'#9cc8ff','center');return}
   if(o&&o.noBar||u.dustK||G.ending)return;
@@ -998,11 +998,16 @@ function step(dt){
   else update(dt);
 }
 let last=performance.now(),acc=0;
+// 다음 프레임을 먼저 예약 — 한 프레임에서 오류가 나도 게임 루프가 멈추지 않게
+let frameErr=0;
 function frame(now){
+  requestAnimationFrame(frame);
   const d=Math.min(.1,(now-last)/1000);last=now;uiT+=d;
-  if(STATE==='result'&&G)G.resT+=d;
-  if((STATE==='play'||STATE==='result')&&!paused&&!help&&G){acc+=d;while(acc>=STEP){if(STATE==='play')step(STEP);else updateFx(STEP);acc-=STEP}}else acc=0;
-  render();requestAnimationFrame(frame);
+  try{
+    if(STATE==='result'&&G)G.resT+=d;
+    if((STATE==='play'||STATE==='result')&&!paused&&!help&&G){acc+=d;while(acc>=STEP){if(STATE==='play')step(STEP);else updateFx(STEP);acc-=STEP}}else acc=0;
+    render();
+  }catch(e){acc=0;if(frameErr++<5)console.error(e)}
 }
 // 디버그 해시: #play #stage=N #sim=초 #bot #god #food=N #gauge #help #select #nointro #all #nobal
 if(DBG.select)STATE='select';

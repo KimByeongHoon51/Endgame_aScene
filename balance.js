@@ -258,14 +258,14 @@ window.BALANCE_DEFAULT = {
       "food": 60,
       "gauge": 6,
       "aoe": 0,
-      "throwCd": 10,
+      "throwCd": 8,
       "throwPct": 20,
       "throwRange": 450
     },
     "ebony": {
       "name": "에보니 모",
       "hp": 2000,
-      "atk": 28,
+      "atk": 60,
       "rate": 1.4,
       "range": 260,
       "spd": 40,
@@ -279,15 +279,15 @@ window.BALANCE_DEFAULT = {
     "thanos": {
       "name": "타노스",
       "hp": 5000,
-      "atk": 45,
+      "atk": 100,
       "rate": 1.8,
       "range": 80,
       "spd": 60,
       "food": 0,
       "gauge": 0,
       "aoe": 70,
-      "slamCd": 9,
-      "slamDmg": 45,
+      "slamCd": 8,
+      "slamDmg": 60,
       "slamRange": 220,
       "slamPush": 50
     }
