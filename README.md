@@ -3,6 +3,7 @@
 영화 「어벤져스: 엔드게임」 최종 전투를 오마주한 팔라독 스타일 라인 디펜스 웹게임 (카툰풍, 비상업 팬 게임).
 
 **플레이:** https://kimbyeonghoon51.github.io/Endgame_aScene/
+
 **밸런스 테이블:** https://kimbyeonghoon51.github.io/Endgame_aScene/balance.html
 
 ## 규칙
