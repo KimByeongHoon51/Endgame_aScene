@@ -364,7 +364,7 @@ function newGame(si){
   const st=STAGES[si];
   G={si,st,t:0,food:DBG.food||BAL.food.start,foodMax:BAL.food.max,foodRate:st.foodRate,allies:[],enemies:[],projs:[],fx:[],parts:[],texts:[],says:[],
     gauge:DBG.gauge?BAL.gaunt.need:(gaugeAt[si]||0),skill:{shield:0,thunder:0},ucd:UNITS.map(()=>0),spawnT:4,beam:0,flash:0,shake:0,
-    kills:0,end:0,result:null,botT:0,resT:0,newUnits:[],snaps:0,spawned:0,sCyc:0,inc:{pass:0,mob:0,boss:0},
+    kills:0,end:0,result:null,botT:0,resT:0,newUnits:[],snaps:0,spawned:0,sCyc:0,queue:[],inc:{pass:0,mob:0,boss:0},
     pool:{outrider:st.outrider,chitauri:st.chitauri,brute:st.brute},
     base:{struct:1,x:BASE_X,y:GROUND,hp:BAL.base.hp,max:BAL.base.hp,hit:0},
     ship:st.boss==='thanos'?null:{struct:1,ship:1,x:SHIP_X,y:GROUND,hp:st.shipHp,max:st.shipHp,hit:0},
@@ -422,7 +422,9 @@ function finish(res,ship){
 function spawnFoe(type,force){
   if(!force&&G.enemies.length>=45)return null;
   const e=mkUnit(FOES[type],'T',SPAWN_X+rnd(-8,8));e.wait=.5;G.enemies.push(e);G.beam=1;
-  if(e.def.role!=='mob'){pop(e.def.name+' 등장!',640,140,'#ff6a6a',34);sfx('boss');e.y=GROUND+2;bossShock()}
+  if(e.def.role!=='mob'){pop(e.def.name+' 등장!',640,140,'#ff6a6a',34);sfx('boss');e.y=GROUND+2;bossShock();
+    // 보스와 함께 잡몹이 쏟아짐 (0.3초 간격)
+    for(let i=0;i<(G.st.bossMobs||0);i++)G.queue.push({at:G.t+.4+i*.3,type:pickW(G.pool)})}
   return e;
 }
 // 보스 등장 충격파: 피해 없이 아군 전원(캡틴 포함)을 뒤로 밀어내 군함에서 떼어 놓음
@@ -548,6 +550,7 @@ function update(dt){
   const st=G.st;
   G.spawnT-=dt;
   if(G.spawnT<=0){const p=clamp(G.t/120,0,1);G.spawnT=lerp(st.int0,st.int1,p)/st.mob;const n=1+(Math.random()<p*.6?1:0)+(Math.random()<p*.25?1:0);for(let i=0;i<n;i++)spawnFoe(pickW(G.pool))}
+  while(G.queue.length&&G.t>=G.queue[0].at)spawnFoe(G.queue.shift().type);
   // 보스
   if(G.final){
     const gap=BAL.final.orderGap;
@@ -837,6 +840,8 @@ function drawHelp(){
 }
 
 // ───────── 그리기: 타이틀·스테이지 선택·결과 ─────────
+const SELBTN={x:540,y:410,w:200,h:48};
+function toSelect(){paused=false;stopVoice();pauseBgm();STATE='select';SEL=Math.min(cleared,4)}
 const BALBTN={x:1100,y:676,w:164,h:34};
 function drawTitle(){
   ctx.drawImage(BG,0,0);drawShip(null,uiT,0);drawBase(null);
@@ -890,9 +895,10 @@ function render(){
   else if(G.intro>0)drawIntro();
   else if(G.ending&&STATE==='play')drawEnding();
   else{drawScene();drawHUD();
-    if(G.banner>0&&G.end<=0&&STATE==='play'){const a=Math.min(1,G.banner);ctx.globalAlpha=a;txt(G.st.name,640,250,64,'#ffcf3a','center',LOGO,10);txt(G.st.sub,640,315,32,'#fff','center',LOGO,6);ctx.globalAlpha=1}
+    if(G.banner>0&&G.end<=0&&STATE==='play'&&!paused){const a=Math.min(1,G.banner);ctx.globalAlpha=a;txt(G.st.name,640,250,64,'#ffcf3a','center',LOGO,10);txt(G.st.sub,640,315,32,'#fff','center',LOGO,6);ctx.globalAlpha=1}
     if(STATE==='result')drawResult();
-    if(paused&&!help){overlay(.5);txt('PAUSED',640,330,80,'#fff','center',LOGO,10)}}
+    if(paused&&!help){overlay(.6);txt('PAUSED',640,290,80,'#fff','center',LOGO,10);txt('PRESS ESC TO RESUME',640,365,26,'#ffe9a8','center',LOGO,5);
+      ctx.save();ctx.lineWidth=3;ctx.strokeStyle=OUT;rr(SELBTN.x,SELBTN.y,SELBTN.w,SELBTN.h,10);P('#3a2f2a');ctx.restore();txt('스테이지 선택',640,SELBTN.y+SELBTN.h/2,22,'#fff','center',UI,0)}}
   if(help)drawHelp();
 }
 
@@ -932,6 +938,7 @@ cv.addEventListener('pointerdown',e=>{
   if(Math.hypot(mx-1188,my-30)<20){toggleMute();return}
   if(STATE==='title'&&mx>BALBTN.x&&mx<BALBTN.x+BALBTN.w&&Math.abs(my-BALBTN.y)<BALBTN.h/2){location.href='balance.html';return}
   if(STATE==='select'){STAGES.forEach((s,i)=>{const q=selRect(i);if(mx>q.x&&mx<q.x+q.w&&my>q.y&&my<q.y+q.h&&(i<=cleared||DBG.all)){if(SEL===i)startStage(i);else SEL=i}});return}
+  if(STATE==='play'&&paused){if(mx>SELBTN.x&&mx<SELBTN.x+SELBTN.w&&my>SELBTN.y&&my<SELBTN.y+SELBTN.h)toSelect();return}
   if(STATE==='play'&&!G.intro){
     for(const m of MV)if(Math.abs(mx-m.x)<MVS&&Math.abs(my-m.y)<MVS){if(m.d<0)keys.pl=1;else keys.pr=1;cv.setPointerCapture(e.pointerId);return}
     for(let i=0;i<UNITS.length;i++){const x=CARD.x+i*CARD.gap;if(mx>x&&mx<x+CARD.w&&my>CARD.y&&my<CARD.y+CARD.h){spawnUnit(i);return}}
