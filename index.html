@@ -359,7 +359,7 @@ function drawShip(s,t,beam){
 // ───────── 게임 상태 ─────────
 let STATE='title',G=null,SEL=0,paused=false,help=false,uiT=0;
 const isUnlocked=(u,si)=>DBG.all||u.unlock<=si+1;
-function mkUnit(def,side,x){return{def,side,x,y:GROUND+rnd(-14,10),hp:def.hp,max:def.hp,cd:rnd(0,.4),stun:0,slow:0,hit:0,anim:Math.random()*9,atkT:0,dead:0,deadT:0,walk:0,pushT:(def.pushCd||0)*.5}}
+function mkUnit(def,side,x){return{def,side,x,y:GROUND+rnd(-14,10),hp:def.hp,max:def.hp,cd:rnd(0,.4),stun:0,slow:0,hit:0,anim:Math.random()*9,atkT:0,dead:0,deadT:0,walk:0,pushT:(def.pushCd||0)*.5,throwT:def.throwCd?1:0}}
 function newGame(si){
   const st=STAGES[si];
   G={si,st,t:0,food:DBG.food||BAL.food.start,foodMax:BAL.food.max,foodRate:st.foodRate,allies:[],enemies:[],projs:[],fx:[],parts:[],texts:[],says:[],
@@ -470,6 +470,13 @@ function attack(u,t){
   }
 }
 // 에보니 모 염력: 앞쪽 아군을 뒤로 날려버림
+// 프록시마·코르버스 창 던지기: 앞쪽 일직선을 관통해 맞은 아군마다 최대 체력의 throwPct% 피해 (체력 높은 탱커일수록 아픔, 뒤의 원거리까지 닿음)
+function spearThrow(u,dt){
+  const d=u.def;u.throwT-=dt;if(u.throwT>0)return;
+  if(!G.allies.some(a=>!a.dead&&u.x-a.x>=-20&&u.x-a.x<=d.throwRange))return;
+  u.throwT=d.throwCd;u.atkT=.5;sfx('whoosh');pop('창 던지기!',u.x,u.y-120,'#ffcf3a',28);
+  G.projs.push({k:'spear',x:u.x-20,y:u.y-46*(d.sc||1),dir:-1,dist:0,range:d.throwRange,pct:d.throwPct,hit:new Set(),src:u,ang:Math.PI});
+}
 function ebonyPush(u,dt){
   const d=u.def;u.pushT-=dt;if(u.pushT>0)return;
   const hit=G.allies.filter(a=>!a.dead&&u.x-a.x>=-20&&u.x-a.x<=d.pushRange);if(!hit.length)return;
@@ -481,6 +488,7 @@ function unitAI(u,dt){
   u.anim+=dt;u.hit=Math.max(0,u.hit-dt);u.atkT=Math.max(0,u.atkT-dt);u.slow=Math.max(0,u.slow-dt);
   if(u.wait>0){u.wait-=dt;return}
   if(u.stun>0){u.stun-=dt;u.walk=0;return}
+  if(u.def.throwCd)spearThrow(u,dt); // 걸어 나오는 중에도 던짐
   if(u.side==='T'&&u.x>SHIP_X-40){u.walk=1;u.face=-1;u.x-=u.def.spd*(u.slow>0?.5:1)*dt;return}
   if(u.def.pushCd)ebonyPush(u,dt);
   u.cd-=dt;
@@ -574,6 +582,9 @@ function update(dt){
 function updateProjs(dt){
   const S=BAL.shield;
   for(const p of G.projs){
+    if(p.k==='spear'){const s=760*dt;p.x+=p.dir*s;p.dist+=s;
+      for(const a of G.allies)if(!a.dead&&!p.hit.has(a)&&Math.abs(a.x-p.x)<16+reach(a)){p.hit.add(a);dmg(a,a.max*p.pct/100,p.src);a.stun=Math.max(a.stun,.3);G.fx.push({k:'slash',x:a.x,y:tY(a),t:.2,T:.2,c:'#ffcf3a',dir:-1})}
+      if(p.dist>=p.range||p.x<BASE_X)p.done=1;continue}
     if(p.k==='shield'){const c=G.cap;p.ang+=dt*20;
       if(!p.ret){p.x+=p.dir*680*dt;p.dist+=680*dt;if(p.dist>=S.dist||p.x>=SHIP_X-10||p.x<=BASE_X){p.ret=1;p.hitSet.clear();if(G.ship&&p.x>=SHIP_X-10)dmg(G.ship,S.dmg,c)}}
       else{const dx=c.x-p.x,dy=(c.y-26)-p.y,L=Math.hypot(dx,dy);if(L<24||c.dead){p.done=1;c.shieldOut=0;continue}p.x+=dx/L*760*dt;p.y+=dy/L*760*dt}
@@ -665,6 +676,7 @@ function drawProj(p){
     case 'web':ctx.strokeStyle='#fff';ctx.lineWidth=1.5;for(let i=0;i<4;i++){ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(i*1.57+.78)*8,Math.sin(i*1.57+.78)*8);ctx.stroke()}line(-20,0,0,0,'rgba(255,255,255,.7)',1.5);break;
     case 'orb':glow('#ff9a1f',14);circ(0,0,7);ctx.fillStyle='#ffd27a';ctx.fill();ctx.strokeStyle='#ff9a1f';circ(0,0,10);ctx.stroke();break;
     case 'bolt':glow('#7cf',10);rr(-10,-2.5,20,5,2);ctx.fillStyle='#cff';ctx.fill();break;
+    case 'spear':ctx.scale(1.5,1.5);glow('#ffcf3a',14);line(-30,0,26,0,'#8a6d3a',4);poly([26,-6,42,0,26,6]);P('#e8edf2');line(-30,0,-38,-5,'#fff',2);line(-30,0,-38,5,'#fff',2);break;
     case 'rock':glow('#6cf',10);poly([-11,-6,-3,-11,9,-8,12,2,4,10,-8,8]);P('#8a7258');break;
   }
   ctx.restore();

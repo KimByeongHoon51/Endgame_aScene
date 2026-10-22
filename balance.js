@@ -239,7 +239,10 @@ window.BALANCE_DEFAULT = {
       "spd": 60,
       "food": 60,
       "gauge": 6,
-      "aoe": 0
+      "aoe": 0,
+      "throwCd": 5,
+      "throwPct": 30,
+      "throwRange": 450
     },
     "corvus": {
       "name": "코르버스 글레이브",
@@ -250,7 +253,10 @@ window.BALANCE_DEFAULT = {
       "spd": 60,
       "food": 60,
       "gauge": 6,
-      "aoe": 0
+      "aoe": 0,
+      "throwCd": 5,
+      "throwPct": 30,
+      "throwRange": 450
     },
     "ebony": {
       "name": "에보니 모",
