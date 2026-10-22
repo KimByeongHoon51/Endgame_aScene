@@ -166,7 +166,7 @@ window.BALANCE_DEFAULT = {
       "atk": 20,
       "rate": 0.6,
       "range": 34,
-      "spd": 70,
+      "spd": 115,
       "aoe": 0,
       "slow": 0,
       "multi": 0,
