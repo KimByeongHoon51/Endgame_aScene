@@ -88,6 +88,7 @@ function sfx(k){
     case 'unlock':[784,988,1175].forEach((f,i)=>setTimeout(()=>AC&&tone(f,.2,'triangle',.07),i*110));break;
     case 'over':[392,330,262].forEach((f,i)=>setTimeout(()=>AC&&tone(f,.35,'square',.06),i*220));break;
     case 'boss':tone(110,.6,'sawtooth',.1,80);break;
+    case 'shatter':noise(.6,.35,5000);[1568,1319,1047].forEach((f,i)=>setTimeout(()=>AC&&tone(f,.2,'triangle',.06),i*90));break;
   }
 }
 function playVoice(){if(muted||DBG.sim)return;try{VOICE.currentTime=0;VOICE.play().catch(()=>{})}catch(e){}}
@@ -321,6 +322,17 @@ function drawBase(b){
   if(r<.6){const t=performance.now()/1000;for(let i=0;i<(r<.3?3:1);i++){const x=30+i*45,y=280+i*8;ctx.fillStyle='rgba(255,140,40,.9)';ell(x,y-6+Math.sin(t*9+i)*3,8,13);ctx.fill();ctx.fillStyle='rgba(255,230,120,.9)';ell(x,y-2,4,7);ctx.fill()}}
   ctx.restore();
 }
+// 군함 방어막: 보스를 쓰러뜨릴 때까지 군함·착륙 기둥을 감쌈
+function drawShield(t){
+  const h=G.shieldHit>0?1:0;ctx.save();glow('#7cc8ff',18+h*20);
+  ell(1090,340,215,235);ctx.fillStyle=`rgba(120,190,255,${.1+h*.12+Math.sin(t*2)*.03})`;ctx.fill();
+  ctx.strokeStyle=`rgba(170,225,255,${.55+h*.4})`;ctx.lineWidth=3;ctx.stroke();ctx.shadowBlur=0;
+  ctx.strokeStyle='rgba(170,225,255,.18)';ctx.lineWidth=1.5;for(let i=1;i<4;i++){ell(1090,340,215*i/4,235,0);ctx.stroke()}
+  for(let i=1;i<4;i++){ctx.beginPath();ctx.ellipse(1090,340,215,235*i/4,0,0,Math.PI*2);ctx.stroke()}
+  ctx.restore();
+  if(G.boss&&!G.boss.dead)txt('방어막 — '+G.boss.def.name+'을(를) 쓰러뜨려라',1090,96,16,'#bfe6ff','center');
+  else txt('방어막 — 보스를 쓰러뜨려야 해제',1090,96,16,'#bfe6ff','center');
+}
 function drawShip(s,t,beam){
   if(s&&s.gone)return;
   ctx.save();ctx.lineWidth=3;ctx.strokeStyle=OUT;ctx.lineJoin='round';
@@ -355,7 +367,7 @@ function newGame(si){
     pool:{outrider:st.outrider,chitauri:st.chitauri,brute:st.brute},
     base:{struct:1,x:BASE_X,y:GROUND,hp:BAL.base.hp,max:BAL.base.hp,hit:0},
     ship:st.boss==='thanos'?null:{struct:1,ship:1,x:SHIP_X,y:GROUND,hp:st.shipHp,max:st.shipHp,hit:0},
-    final:st.boss==='thanos',boss:null,bossOut:0,order:[],orderN:0,thanos:null,
+    final:st.boss==='thanos',shieldOn:st.boss!=='thanos',shieldHit:0,boss:null,bossOut:0,order:[],orderN:0,thanos:null,
     banner:0,intro:(DBG.sim||DBG.nointro)?0:INTRO_T};
   for(const k in G.pool)if(!(G.pool[k]>0))delete G.pool[k];
   const c=mkUnit(CAP,'A',300);c.hero=1;c.face=1;c.regenT=0;c.y=GROUND;G.cap=c;G.allies.push(c);
@@ -371,6 +383,7 @@ const isBoss=e=>e.def.role==='boss'||e.def.role==='thanos';
 function dmg(e,n,src){
   if(e.dead||G.end>0)return;
   if(DBG.god&&e.side==='A'&&!e.ship)return;
+  if(e.ship&&G.shieldOn){n*=1-BAL.boss.shieldPct/100;G.shieldHit=.15}
   e.hp-=n;e.hit=.1;if(e.hero)e.regenT=3;
   if(e.hp<=0){
     e.hp=0;
@@ -385,7 +398,9 @@ function kill(e,dust){
   const n=dust?26:10,cols=dust?['#6b5a48','#8a7560','#4a3c30']:['#fff','#ddd','#ffe9a8'];
   for(let i=0;i<n;i++)G.parts.push({x:e.x+rnd(-10,10),y:tY(e)+rnd(-15,20),vx:dust?rnd(20,90):rnd(-80,80),vy:dust?rnd(-60,-10):rnd(-120,-20),t:dust?1.6:.5,T:dust?1.6:.5,c:cols[i%3],r:rnd(2,5),g:dust?-10:300});
   if(e.hero){e.reviveT=CAP.revive;e.shieldOut=0;pop('캡틴 아메리카 쓰러짐!',e.x,e.y-120,'#ff8a8a',26)}
-  if(e===G.boss)pop(e.def.name+' 격파!',640,150,'#ffe14d',34);
+  if(e===G.boss&&G.shieldOn){G.shieldOn=false;const bn=BAL.boss.bonus;G.food=Math.min(G.foodMax,G.food+bn);G.inc.boss+=bn;G.shake=.6;sfx('shatter');
+    pop(e.def.name+' 격파! 방어막 해제',640,150,'#ffe14d',34);pop('식량 +'+bn,250,520,'#ffe9a8',30);
+    for(let i=0;i<70;i++){const a=Math.random()*Math.PI*2;G.parts.push({x:1090+Math.cos(a)*215,y:340+Math.sin(a)*235,vx:Math.cos(a)*rnd(40,160),vy:Math.sin(a)*rnd(40,160),t:1,T:1,c:['#bfe6ff','#7cc8ff','#fff'][i%3],r:rnd(2,5),g:120})}}
   if(e===G.thanos){dustAll(e);finish('clear')}
 }
 function dustAll(e){for(let i=0;i<120;i++)G.parts.push({x:e.x+rnd(-30,30),y:e.y-rnd(0,150),vx:rnd(20,120),vy:rnd(-80,-10),t:2.4,T:2.4,c:['#6b4f7a','#c9a227','#4a3c55'][i%3],r:rnd(2,6),g:-10})}
@@ -560,7 +575,7 @@ function updateFx(dt){
   for(const t of G.texts){t.t-=dt;t.y-=30*dt}G.texts=G.texts.filter(t=>t.t>0);
   for(const s of G.says){if(s.delay>0)s.delay-=dt;else s.t-=dt}G.says=G.says.filter(s=>s.t>0);
   for(const u of[...G.allies,...G.enemies])if(u.dead)u.deadT-=dt;
-  G.flash=Math.max(0,G.flash-dt);G.shake=Math.max(0,G.shake-dt);
+  G.flash=Math.max(0,G.flash-dt);G.shake=Math.max(0,G.shake-dt);G.shieldHit=Math.max(0,(G.shieldHit||0)-dt);
 }
 // ───────── 전략 시뮬레이터 (balance.html에서 호출) ─────────
 // kind: random(무작위 혼합) / cheap(해금된 가장 싼 2종 물량) / rich(가장 비싼 2종 저축) / W(전사만) / R(원거리만) / custom(고른 유닛을 순서대로)
@@ -656,7 +671,7 @@ function bubble(x,y,s){
 function drawWorld(o){
   const t=G.t+(INTRO_T-G.intro);
   ctx.drawImage(BG,0,0);
-  drawShip(G.ship,t,G.beam);drawBase(G.base);
+  drawShip(G.ship,t,G.beam);if(G.shieldOn)drawShield(t);drawBase(G.base);
   txt('무너진 어벤져스 건물',8,236,18,'#f3e6d0','left');
   if(!G.final){drawChar('thanos',1200,GROUND+4,-1,2.4,t,{idle:1});txt('타노스',1200,GROUND-188,20,'#e6d0ff','center')}
   const all=[...G.allies,...G.enemies].sort((a,b)=>a.y-b.y);for(const u of all)drawUnit(u,u.hero?o:null);
@@ -705,7 +720,7 @@ function drawHUD(){
   const b=G.base,fb=foeBar();
   // 왼쪽 위는 배경음 플레이어 자리라 상단 HUD를 오른쪽으로 100 이동
   txt('Avengers',336,34,24,'#cfe3ff','center',LOGO);txt('Thanos',1000,34,24,'#e6d0ff','center',LOGO);
-  bar(392,22,262,24,b.hp/b.max,'#3f8cff',true);bar(686,22,262,24,fb.r,'#a24dff',false);
+  bar(392,22,262,24,b.hp/b.max,'#3f8cff',true);bar(686,22,262,24,fb.r,G.shieldOn?'#7cc8ff':'#a24dff',false);if(G.shieldOn)txt('🛡',702,34,18,'#bfe6ff','center',UI,0);
   txt('VS',670,34,24,'#fff','center',LOGO);
   txt(Math.ceil(b.hp)+'',523,34,15,'#fff','center');txt(fb.v+'',817,34,15,'#fff','center');
   txt(G.st.name+'  '+G.st.sub,670,70,18,'#f3e6d0','center');
@@ -762,8 +777,8 @@ function drawHelp(){
   txt('조작법',640,110,34,'#ffe14d','center',LOGO);
   const L=[['← → / A D / 화면 버튼','캡틴 아메리카 이동 (가까운 적은 자동 공격)'],['1 ~ 9 / 카드 클릭','유닛 생산 (식량 소모, 유닛별 대기시간)'],['Q','방패 던지기 — 관통 후 되돌아옴'],['W','묠니르 번개 — 앞쪽 적 전체 피해 + 기절'],
     ['E','인피니티 건틀릿 — 적 체력 '+BAL.gaunt.pct+'% 감소 (보스 '+BAL.gaunt.bossPct+'%)'],['','적을 잡아야만 충전, 다음 스테이지로 이월'],['P / Esc','일시정지'],['M','소리 켜기/끄기'],['',''],
-    ['승리','타노스의 군함 파괴 (FINAL: 블랙 오더 → 타노스 처치)'],['패배','어벤져스 건물 파괴 (캡틴은 쓰러지면 '+CAP.revive+'초 후 부활)'],['해금','스테이지를 클리어하면 새 어벤져스 합류']];
-  L.forEach(([k,v],i)=>{txt(k,280,160+i*37,19,OUT,'left',UI,0);txt(v,500,160+i*37,19,'#3a2a20','left',UI,0)});
+    ['승리','타노스의 군함 파괴 (FINAL: 블랙 오더 → 타노스 처치)'],['보스','군함 방어막(피해 '+BAL.boss.shieldPct+'% 감소) — 잡으면 해제 + 식량 +'+BAL.boss.bonus],['패배','어벤져스 건물 파괴 (캡틴은 쓰러지면 '+CAP.revive+'초 후 부활)'],['해금','스테이지를 클리어하면 새 어벤져스 합류']];
+  L.forEach(([k,v],i)=>{txt(k,280,156+i*34,18,OUT,'left',UI,0);txt(v,500,156+i*34,18,'#3a2a20','left',UI,0)});
   txt('아무 키나 눌러 닫기',640,622,16,'#7a6450','center',UI,0);
 }
 

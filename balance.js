@@ -7,6 +7,7 @@ window.BALANCE_DEFAULT = {
   "shield": { "cd": 20, "dmg": 60, "dist": 480 },
   "thunder": { "cd": 40, "dmg": 110, "stun": 1.5, "front": 480, "back": 120 },
   "gaunt": { "need": 100, "pct": 50, "bossPct": 20 },
+  "boss": { "shieldPct": 75, "bonus": 100 },
   "units": [
     { "id": "hawkeye",    "name": "호크아이",        "cls": "R", "cost": 5,   "cd": 2.5, "hp": 45,  "atk": 9,  "rate": 1.0,  "range": 250, "spd": 70,  "aoe": 0,  "slow": 0, "multi": 0, "unlock": 1 },
     { "id": "thor",       "name": "토르",            "cls": "W", "cost": 10,  "cd": 4,   "hp": 130, "atk": 14, "rate": 0.9,  "range": 36,  "spd": 75,  "aoe": 0,  "slow": 0, "multi": 0, "unlock": 1 },

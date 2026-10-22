@@ -83,9 +83,10 @@ const L={hp:'체력',atk:'공격력',rate:'공격 간격(초)',range:'사거리'
   name:'이름',cls:'직업',cost:'식량',aoe:'범위 반경',slow:'둔화(초)',multi:'동시 공격',unlock:'해금 스테이지',food:'처치 식량',gauge:'건틀릿 게이지',
   pushCd:'염력 간격(초)',push:'밀어내는 거리',pushRange:'염력 범위',slamCd:'내려찍기 간격',slamDmg:'내려찍기 피해',slamRange:'내려찍기 범위',slamPush:'밀어내는 거리',
   sub:'부제',foodRate:'초당 식량',shipHp:'군함 체력',int0:'생성 간격 시작',int1:'생성 간격 2분 후',mob:'잡몹 수 배율',foodMul:'잡몹 식량 배율',
-  outrider:'아웃라이더 비율',chitauri:'치타우리 비율',brute:'고릴라 비율',boss:'보스',bossTime:'보스 등장(초)',bossShip:'보스 등장(군함 체력%)',orderGap:'블랙 오더 출격 간격(초)'};
-const GROUPS=[['cap','캡틴 아메리카'],['base','어벤져스 건물'],['food','식량'],['shield','방패 던지기 (Q)'],['thunder','묠니르 번개 (W)'],['gaunt','인피니티 건틀릿 (E)'],['final','FINAL 스테이지']];
+  outrider:'아웃라이더 비율',chitauri:'치타우리 비율',brute:'고릴라 비율',boss:'보스',bossTime:'보스 등장(초)',bossShip:'보스 등장(군함 체력%)',orderGap:'블랙 오더 출격 간격(초)',shieldPct:'방어막 피해 감소%',bonus:'처치 즉시 식량 보너스'};
+const GROUPS=[['cap','캡틴 아메리카'],['base','어벤져스 건물'],['food','식량'],['shield','방패 던지기 (Q)'],['thunder','묠니르 번개 (W)'],['gaunt','인피니티 건틀릿 (E)'],['boss','스테이지 보스 (S1~S4)'],['final','FINAL 스테이지']];
 const NOTES={gaunt:'적을 잡을 때 적 표의 「건틀릿 게이지」만큼 차고 다음 스테이지로 이월. 일반 적은 최대 체력의 pct%, 보스·타노스는 bossPct%만큼 체력 감소.',
+  boss:'S1~S4 군함은 보스를 쓰러뜨릴 때까지 방어막으로 피해가 shieldPct%만큼 줄어듦. 보스를 잡으면 방어막이 꺼지고 식량 보너스를 바로 받음 (보스 처치 식량과 별도).',
   final:'블랙 오더 4명(컬→프록시마→코르버스→에보니)이 스테이지 표의 「보스 등장(초)」부터 이 간격으로 출격, 모두 쓰러지면 타노스 등판.'};
 
 function inp(v,path,isText){
@@ -100,7 +101,7 @@ const r1=n=>Math.round(n*10)/10;
 function build(){
   let h='';
   // 단일 값 그룹
-  h+='<section><h2>캡틴 · 건물 · 스킬</h2><p class="note">'+NOTES.gaunt+'<br>'+NOTES.final+'</p><div class="grid">';
+  h+='<section><h2>캡틴 · 건물 · 스킬</h2><p class="note">'+NOTES.gaunt+'<br>'+NOTES.boss+'<br>'+NOTES.final+'</p><div class="grid">';
   for(const[g,t]of GROUPS){h+=`<div><table><tr><th colspan="2">${t}</th></tr>`;for(const k in B[g])h+=`<tr><td class="k">${L[k]||k}</td>${inp(B[g][k],[g,k])}</tr>`;
     if(g==='cap')h+=`<tr><td class="k">초당 피해(DPS)</td><td class="calc">${r1(B.cap.atk/B.cap.rate)}</td></tr>`;h+='</table></div>'}
   h+='</div></section>';
