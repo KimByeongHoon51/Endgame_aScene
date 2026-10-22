@@ -244,8 +244,8 @@ window.BALANCE_DEFAULT = {
       "food": 60,
       "gauge": 6,
       "aoe": 0,
-      "throwCd": 5,
-      "throwPct": 30,
+      "throwCd": 10,
+      "throwPct": 20,
       "throwRange": 450
     },
     "corvus": {
@@ -258,8 +258,8 @@ window.BALANCE_DEFAULT = {
       "food": 60,
       "gauge": 6,
       "aoe": 0,
-      "throwCd": 5,
-      "throwPct": 30,
+      "throwCd": 10,
+      "throwPct": 20,
       "throwRange": 450
     },
     "ebony": {
