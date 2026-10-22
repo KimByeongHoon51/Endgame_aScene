@@ -48,7 +48,7 @@ const UNITS=BAL.units.map(u=>({...u,...VIS[u.id]}));
 const FOES={};for(const k in BAL.foes)FOES[k]={id:k,...BAL.foes[k],...VIS[k]};
 const STAGES=BAL.stages;
 const ORDER=['cull','proxima','corvus','ebony'];
-const SKILLS=[{id:'shield',name:'방패 던지기',key:'Q',cd:BAL.shield.cd},{id:'thunder',name:'묠니르 번개',key:'W',cd:BAL.thunder.cd},{id:'gaunt',name:'인피니티 건틀릿',key:'E'}];
+const SKILLS=[{id:'shield',name:'방패 던지기',key:'Q',cd:BAL.shield.cd},{id:'thunder',name:'묠니르 번개',key:'W',cd:BAL.thunder.cd},{id:'gaunt',name:'아이언맨 스냅',key:'E'}];
 
 // ───────── 유틸·저장 ─────────
 const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),lerp=(a,b,t)=>a+(b-a)*t,ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
@@ -507,20 +507,38 @@ function unitAI(u,dt){
 }
 
 // ───────── 캡틴 아메리카 스킬 ─────────
+function snapHit(){
+  const q=G.snapSeq;G.flash=.8;G.shake=.4;sfx('snap');pop('SNAP!',q.x,GROUND-190,'#ffd23a',48);
+  for(const e of G.enemies){if(e.dead)continue;const n=e.max*(isBoss(e)?BAL.gaunt.bossPct:BAL.gaunt.pct)/100;
+    if(!isBoss(e)&&e.hp<=n){e.hp=0;kill(e,true)}else dmg(e,n,G.cap)}
+}
+// 0~0.5초 날아옴, 0.55초 손을 듦, 0.9초 스냅, 1.15초부터 날아감, 1.6초 끝
+function updateSnap(dt){
+  const q=G.snapSeq,t0=q.t;q.t+=dt;for(const u of[...G.allies,...G.enemies])u.anim+=dt;
+  if(t0<.9&&q.t>=.9)snapHit();
+  updateFx(dt);if(q.t>=1.6)G.snapSeq=null;
+}
+function drawSnap(){
+  const q=G.snapSeq,t=q.t,inn=ease(clamp(t/.5,0,1)),out=ease(clamp((t-1.15)/.45,0,1));
+  ctx.fillStyle=`rgba(10,6,4,${.35*Math.min(1,t/.3)*(1-out)})`;ctx.fillRect(0,0,W,H);
+  const x=q.x-(1-inn)*520+out*560,lift=40+(1-inn)*200+out*260;
+  drawChar('ironman',x,GROUND+4,1,1.7,uiT,{gaunt:1,raise:t>=.55&&t<1.15,lift});
+  if(t>=.9&&t<1.3){ctx.save();glow('#fff',30);ctx.globalAlpha=1-(t-.9)/.4;circ(x+29,GROUND-lift-115,16+(t-.9)*140);ctx.strokeStyle='#ffe9a8';ctx.lineWidth=4;ctx.stroke();ctx.restore()}
+  if(t<.9)txt('아이언맨 스냅!',x,GROUND-lift-170,26,'#ffcf3a','center',LOGO,5);
+}
 function useSkill(i){
-  if(STATE!=='play'||paused||help||G.end>0||G.intro>0)return;const c=G.cap;if(c.dead)return;
+  if(STATE!=='play'||paused||help||G.end>0||G.intro>0||G.snapSeq)return;const c=G.cap;if(c.dead)return;
   if(i===0){if(G.skill.shield>0||c.shieldOut){sfx('no');return}
     G.skill.shield=SKILLS[0].cd;c.shieldOut=1;G.projs.push({k:'shield',x:c.x+c.face*14,y:c.y-26,dir:c.face,dist:0,ret:0,hitSet:new Set(),ang:0});pop('방패!',c.x,c.y-90,'#9cc8ff',22);sfx('shield')}
   if(i===1){if(G.skill.thunder>0){sfx('no');return}
     const T=BAL.thunder;G.skill.thunder=T.cd;c.raiseT=1;G.flash=.25;G.shake=.5;sfx('thunder');pop('묠니르!',c.x,c.y-100,'#bfe6ff',30);
     for(const e of G.enemies){if(e.dead)continue;const d=e.x-c.x;if(d<-T.back||d>T.front)continue;G.fx.push({k:'bolt',x:e.x,y:tY(e),t:.45,T:.45});dmg(e,T.dmg,c);if(!e.dead)e.stun=Math.max(e.stun,isBoss(e)?T.stun/3:T.stun)}}
+  // 아이언맨 스냅: 아이언맨이 날아와 스냅하는 짧은 연출(전투 정지) → 스냅 순간 snapHit()
   if(i===2){if(G.gauge<BAL.gaunt.need){sfx('no');return}
-    G.gauge=0;G.snaps++;c.gauntT=1.2;G.flash=.8;sfx('snap');pop('SNAP!',c.x,c.y-110,'#ffd23a',44);
-    for(const e of G.enemies){if(e.dead)continue;const n=e.max*(isBoss(e)?BAL.gaunt.bossPct:BAL.gaunt.pct)/100;
-      if(!isBoss(e)&&e.hp<=n){e.hp=0;kill(e,true)}else dmg(e,n,c)}}
+    G.gauge=0;G.snaps++;G.snapSeq={t:0,x:clamp(c.x+90,240,900)};sfx('whoosh')}
 }
 function spawnUnit(i){
-  if(STATE!=='play'||paused||help||G.end>0||G.intro>0)return;const d=UNITS[i];
+  if(STATE!=='play'||paused||help||G.end>0||G.intro>0||G.snapSeq)return;const d=UNITS[i];
   if(!isUnlocked(d,G.si)||G.ucd[i]>0||G.food<d.cost||G.allies.length>=40){sfx('no');return}
   G.food-=d.cost;G.ucd[i]=d.cd;G.spawned++;ust(d.id).spawned++;const u=mkUnit(d,'A',BASE_X+10);G.allies.push(u);sfx('spawn');
 }
@@ -542,6 +560,7 @@ function updateIntro(dt){
 function update(dt){
   if(G.intro>0){updateIntro(dt);return}
   if(G.ending){updateEnding(dt);return}
+  if(G.snapSeq){updateSnap(dt);return}
   G.t+=dt;
   G.food=Math.min(G.foodMax,G.food+G.foodRate*dt);G.inc.pass+=G.foodRate*dt;
   for(const k in G.skill)G.skill[k]=Math.max(0,G.skill[k]-dt);
@@ -721,7 +740,7 @@ function drawWorld(o){
 }
 function drawScene(){
   ctx.save();if(G.shake>0)ctx.translate(rnd(-6,6)*G.shake,rnd(-6,6)*G.shake);
-  drawWorld();ctx.restore();
+  drawWorld();if(G.snapSeq)drawSnap();ctx.restore();
   if(G.flash>0){ctx.fillStyle=`rgba(255,250,235,${Math.min(.85,G.flash)})`;ctx.fillRect(0,0,W,H)}
 }
 // ───────── 엔딩: 아이언맨이 건틀릿을 차고 "I'M IRON MAN" → 스냅 → 타노스와 군단이 먼지로 ─────────
@@ -853,7 +872,7 @@ function drawHelp(){
   overlay(.75);ctx.save();ctx.lineWidth=4;ctx.strokeStyle=OUT;rr(240,70,800,580,18);P('#f6ead2');ctx.restore();
   txt('조작법',640,110,34,'#ffe14d','center',LOGO);
   const L=[['← → / A D / 화면 버튼','캡틴 아메리카 이동 (가까운 적은 자동 공격)'],['1 ~ 9 / 카드 클릭','유닛 생산 (식량 소모, 유닛별 대기시간)'],['Q','방패 던지기 — 관통 후 되돌아옴'],['W','묠니르 번개 — 앞쪽 적 전체 피해 + 기절'],
-    ['E','인피니티 건틀릿 — 적 체력 '+BAL.gaunt.pct+'% 감소 (보스 '+BAL.gaunt.bossPct+'%)'],['','적을 잡아야만 충전, 다음 스테이지로 이월'],['P / Esc','일시정지'],['M','소리 켜기/끄기'],['',''],
+    ['E','아이언맨 스냅 — 적 체력 '+BAL.gaunt.pct+'% 감소 (보스 '+BAL.gaunt.bossPct+'%)'],['','적을 잡아야만 충전, 다음 스테이지로 이월'],['P / Esc','일시정지'],['M','소리 켜기/끄기'],['',''],
     ['승리','타노스의 군함 파괴 (FINAL: 블랙 오더 → 타노스 처치)'],['보스','군함 방어막(피해 '+BAL.boss.shieldPct+'% 감소) — 잡으면 해제 + 식량 +'+BAL.boss.bonus],['패배','어벤져스 건물 파괴 (캡틴은 쓰러지면 '+CAP.revive+'초 후 부활)'],['해금','스테이지를 클리어하면 새 어벤져스 합류']];
   L.forEach(([k,v],i)=>{txt(k,280,156+i*34,18,OUT,'left',UI,0);txt(v,500,156+i*34,18,'#3a2a20','left',UI,0)});
   txt('아무 키나 눌러 닫기',640,622,16,'#7a6450','center',UI,0);

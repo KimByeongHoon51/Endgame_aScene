@@ -55,14 +55,14 @@ td.chg input,td.chg select{background:var(--chg);border-color:var(--gold)}
   <div id="root"></div>
   <section id="simSec">
     <h2>전략 시뮬레이터</h2>
-    <p class="note">위 표의 <b>편집 중인 수치</b>(저장 안 해도 됨)로 게임을 자동 플레이해 전략별 승률과 클리어 시간을 잽니다. 캡틴은 봇이 움직이고 방패·번개는 쓸 수 있을 때 바로 씁니다. 건틀릿은 보스가 있을 때 사용.<br>
+    <p class="note">위 표의 <b>편집 중인 수치</b>(저장 안 해도 됨)로 게임을 자동 플레이해 전략별 승률과 클리어 시간을 잽니다. 캡틴은 봇이 움직이고 방패·번개는 쓸 수 있을 때 바로 씁니다. 아이언맨 스냅은 보스가 있을 때 사용.<br>
     물량형(싼 유닛·전사만·원거리만)은 살 수 있는 것을 바로 생산, 저축형(비싼 유닛·직접 고르기)은 목록 순서대로 식량을 모아 생산합니다. 각 스테이지에서 해금된 유닛만 씁니다.</p>
     <div class="simctl">
       <div><b>스테이지</b> <span id="simStages"></span></div>
       <div><b>전략</b> <span id="simStrats"></span></div>
       <div><b>직접 고르기 유닛</b> <span id="simUnits"></span></div>
       <div>판 수 <input id="simN" type="number" value="5" min="1"> · 목표 시간 <input id="tMin" type="number" value="120">~<input id="tMax" type="number" value="180">초 · 시간 제한 <input id="maxT" type="number" value="400">초 ·
-        <label><input type="checkbox" id="simGauge" style="width:auto"> 건틀릿 게이지 100%로 시작</label></div>
+        <label><input type="checkbox" id="simGauge" style="width:auto"> 스냅 게이지 100%로 시작</label></div>
       <div><button class="main" id="simRun">시뮬레이션 실행</button> <button id="simStop">중지</button> <span id="simProg"></span></div>
     </div>
     <div class="wrap" id="simOut"></div>
@@ -80,12 +80,12 @@ let B=loadSaved();
 // 항목 설명
 const L={hp:'체력',atk:'공격력',rate:'공격 간격(초)',range:'사거리',spd:'이동 속도',revive:'부활 시간(초)',regen:'초당 회복',start:'시작 식량',max:'최대 식량',
   cd:'재사용(초)',dmg:'피해',dist:'날아가는 거리',stun:'기절(초)',front:'앞쪽 범위',back:'뒤쪽 범위',need:'게이지 최대치',pct:'일반 적 감소%',bossPct:'보스 감소%',
-  name:'이름',cls:'직업',cost:'식량',aoe:'범위 반경',slow:'둔화(초)',multi:'동시 공격',unlock:'해금 스테이지',food:'처치 식량',gauge:'건틀릿 게이지',
+  name:'이름',cls:'직업',cost:'식량',aoe:'범위 반경',slow:'둔화(초)',multi:'동시 공격',unlock:'해금 스테이지',food:'처치 식량',gauge:'스냅 게이지',
   pushCd:'염력 간격(초)',push:'밀어내는 거리',pushRange:'염력 범위',slamCd:'내려찍기 간격',slamDmg:'내려찍기 피해',slamRange:'내려찍기 범위',slamPush:'밀어내는 거리',
   sub:'부제',foodRate:'초당 식량',shipHp:'군함 체력',int0:'생성 간격 시작',int1:'생성 간격 2분 후',mob:'잡몹 수 배율',foodMul:'잡몹 식량 배율',
   outrider:'아웃라이더 비율',chitauri:'치타우리 비율',brute:'고릴라 비율',boss:'보스',bossTime:'보스 등장(초)',bossShip:'보스 등장(군함 체력%)',orderGap:'블랙 오더 출격 간격(초)',shieldPct:'방어막 피해 감소%',bonus:'처치 즉시 식량 보너스',pushback:'등장 충격파 밀어내기',bossMobs:'보스 동반 잡몹 수',orderHp:'블랙 오더 체력%',throwCd:'창 던지기 간격(초)',throwPct:'창 피해(최대 체력%)',throwRange:'창 사거리',slowMove:'이동 속도 감소%',slowAtk:'공격 속도 감소%'};
-const GROUPS=[['cap','캡틴 아메리카'],['base','어벤져스 건물'],['food','식량'],['shield','방패 던지기 (Q)'],['thunder','묠니르 번개 (W)'],['gaunt','인피니티 건틀릿 (E)'],['boss','스테이지 보스 (S1~S4)'],['debuff','둔화 (스파이더맨 거미줄)'],['final','FINAL 스테이지']];
-const NOTES={gaunt:'적을 잡을 때 적 표의 「건틀릿 게이지」만큼 차고 다음 스테이지로 이월. 일반 적은 최대 체력의 pct%, 보스·타노스는 bossPct%만큼 체력 감소.',
+const GROUPS=[['cap','캡틴 아메리카'],['base','어벤져스 건물'],['food','식량'],['shield','방패 던지기 (Q)'],['thunder','묠니르 번개 (W)'],['gaunt','아이언맨 스냅 (E)'],['boss','스테이지 보스 (S1~S4)'],['debuff','둔화 (스파이더맨 거미줄)'],['final','FINAL 스테이지']];
+const NOTES={gaunt:'아이언맨 스냅(E): 적을 잡을 때 적 표의 「스냅 게이지」만큼 차고 다음 스테이지로 이월. 일반 적은 최대 체력의 pct%, 보스·타노스는 bossPct%만큼 체력 감소.',
   boss:'보스(블랙 오더·타노스 포함)가 나타나면 충격파로 아군 전원을 pushback만큼 뒤로 밀어냄(피해 없음). S1~S4 군함은 보스를 쓰러뜨릴 때까지 방어막으로 피해가 shieldPct%만큼 줄어듦. 보스를 잡으면 방어막이 꺼지고 식량 보너스를 바로 받음 (보스 처치 식량과 별도).',
   final:'FINAL의 블랙 오더는 적 표 체력의 orderHp%로 출격. 블랙 오더 4명(컬→프록시마→코르버스→에보니)이 스테이지 표의 「보스 등장(초)」부터 이 간격으로 출격, 모두 쓰러지면 타노스 등판.'};
 
@@ -181,7 +181,7 @@ function cell(rs,tMin,tMax){
   const cls=m==null?'long':m<tMin?'short':m>tMax?'long':'ok',lab=m==null?'':m<tMin?' 짧음':m>tMax?' 김':' 목표 안';
   return `<td><b class="${wins.length===rs.length?'ok':wins.length?'short':'long'}">승 ${wins.length}/${rs.length}</b>`+
     (m!=null?` · <span class="${cls}">${Math.round(m)}초${lab}</span><small>${Math.round(Math.min(...ts))}~${Math.round(Math.max(...ts))}초</small>`:'')+
-    `<small>건물 ${Math.round(avg(rs.map(r=>r.base))*100)}% · 생산 ${Math.round(avg(rs.map(r=>r.spawned)))}명 · 식량 넘침 ${Math.round(avg(rs.map(r=>r.over)))}초${avg(rs.map(r=>r.snaps))>0?' · 건틀릿 '+r1(avg(rs.map(r=>r.snaps)))+'회':''}</small>`+
+    `<small>건물 ${Math.round(avg(rs.map(r=>r.base))*100)}% · 생산 ${Math.round(avg(rs.map(r=>r.spawned)))}명 · 식량 넘침 ${Math.round(avg(rs.map(r=>r.over)))}초${avg(rs.map(r=>r.snaps))>0?' · 스냅 '+r1(avg(rs.map(r=>r.snaps)))+'회':''}</small>`+
     `<small>식량 수입 ${Math.round(avg(rs.map(r=>r.start+r.inc.pass+r.inc.mob)))} (시작 ${rs[0].start} + 매초 ${Math.round(avg(rs.map(r=>r.inc.pass)))} + 잡몹 ${Math.round(avg(rs.map(r=>r.inc.mob)))}) · 보스 +${Math.round(avg(rs.map(r=>r.inc.boss)))}</small>`+
     (rs[0].units.length?`<small>${rs[0].units.join('·')}</small>`:'')+'</td>';
 }
