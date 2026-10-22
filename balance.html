@@ -177,6 +177,7 @@ function cell(rs,tMin,tMax){
   return `<td><b class="${wins.length===rs.length?'ok':wins.length?'short':'long'}">승 ${wins.length}/${rs.length}</b>`+
     (m!=null?` · <span class="${cls}">${Math.round(m)}초${lab}</span><small>${Math.round(Math.min(...ts))}~${Math.round(Math.max(...ts))}초</small>`:'')+
     `<small>건물 ${Math.round(avg(rs.map(r=>r.base))*100)}% · 생산 ${Math.round(avg(rs.map(r=>r.spawned)))}명 · 식량 넘침 ${Math.round(avg(rs.map(r=>r.over)))}초${avg(rs.map(r=>r.snaps))>0?' · 건틀릿 '+r1(avg(rs.map(r=>r.snaps)))+'회':''}</small>`+
+    `<small>식량 수입 ${Math.round(avg(rs.map(r=>r.start+r.inc.pass+r.inc.mob)))} (시작 ${rs[0].start} + 매초 ${Math.round(avg(rs.map(r=>r.inc.pass)))} + 잡몹 ${Math.round(avg(rs.map(r=>r.inc.mob)))}) · 보스 +${Math.round(avg(rs.map(r=>r.inc.boss)))}</small>`+
     (rs[0].units.length?`<small>${rs[0].units.join('·')}</small>`:'')+'</td>';
 }
 $('simRun').onclick=async()=>{

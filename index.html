@@ -351,7 +351,7 @@ function newGame(si){
   const st=STAGES[si];
   G={si,st,t:0,food:DBG.food||BAL.food.start,foodMax:BAL.food.max,foodRate:st.foodRate,allies:[],enemies:[],projs:[],fx:[],parts:[],texts:[],says:[],
     gauge:DBG.gauge?BAL.gaunt.need:(gaugeAt[si]||0),skill:{shield:0,thunder:0},ucd:UNITS.map(()=>0),spawnT:4,beam:0,flash:0,shake:0,
-    kills:0,end:0,result:null,botT:0,resT:0,newUnits:[],snaps:0,spawned:0,sCyc:0,
+    kills:0,end:0,result:null,botT:0,resT:0,newUnits:[],snaps:0,spawned:0,sCyc:0,inc:{pass:0,mob:0,boss:0},
     pool:{outrider:st.outrider,chitauri:st.chitauri,brute:st.brute},
     base:{struct:1,x:BASE_X,y:GROUND,hp:BAL.base.hp,max:BAL.base.hp,hit:0},
     ship:st.boss==='thanos'?null:{struct:1,ship:1,x:SHIP_X,y:GROUND,hp:st.shipHp,max:st.shipHp,hit:0},
@@ -381,7 +381,7 @@ function dmg(e,n,src){
 }
 function kill(e,dust){
   e.dead=1;e.deadT=.5;
-  if(e.side==='T'){G.food=Math.min(G.foodMax,G.food+e.def.food*(e.def.role==='mob'?G.st.foodMul:1));G.gauge=Math.min(BAL.gaunt.need,G.gauge+e.def.gauge);G.kills++}
+  if(e.side==='T'){const fd=e.def.food*(e.def.role==='mob'?G.st.foodMul:1);G.food=Math.min(G.foodMax,G.food+fd);G.inc[e.def.role==='mob'?'mob':'boss']+=fd;G.gauge=Math.min(BAL.gaunt.need,G.gauge+e.def.gauge);G.kills++}
   const n=dust?26:10,cols=dust?['#6b5a48','#8a7560','#4a3c30']:['#fff','#ddd','#ffe9a8'];
   for(let i=0;i<n;i++)G.parts.push({x:e.x+rnd(-10,10),y:tY(e)+rnd(-15,20),vx:dust?rnd(20,90):rnd(-80,80),vy:dust?rnd(-60,-10):rnd(-120,-20),t:dust?1.6:.5,T:dust?1.6:.5,c:cols[i%3],r:rnd(2,5),g:dust?-10:300});
   if(e.hero){e.reviveT=CAP.revive;e.shieldOut=0;pop('캡틴 아메리카 쓰러짐!',e.x,e.y-120,'#ff8a8a',26)}
@@ -498,7 +498,7 @@ function updateIntro(dt){
 function update(dt){
   if(G.intro>0){updateIntro(dt);return}
   G.t+=dt;
-  G.food=Math.min(G.foodMax,G.food+G.foodRate*dt);
+  G.food=Math.min(G.foodMax,G.food+G.foodRate*dt);G.inc.pass+=G.foodRate*dt;
   for(const k in G.skill)G.skill[k]=Math.max(0,G.skill[k]-dt);
   for(let i=0;i<G.ucd.length;i++)G.ucd[i]=Math.max(0,G.ucd[i]-dt);
   G.banner=Math.max(0,G.banner-dt);G.beam=Math.max(0,G.beam-dt*2);
@@ -586,7 +586,7 @@ function stratPick(S){
 window.simGame=function(si,S,opt){
   SIM_STRAT=S;DBG.bot=true;newGame(si);G.gauge=opt.gauge?BAL.gaunt.need:0;
   let over=0;while(G.t<opt.maxT&&STATE==='play'){step(STEP);if(G.food>=G.foodMax)over+=STEP}
-  return{win:G.result==='clear',t:G.t,base:G.base.hp/G.base.max,spawned:G.spawned,over,snaps:G.snaps,kills:G.kills,units:(G.sList||[]).map(i=>UNITS[i].name)};
+  return{win:G.result==='clear',t:G.t,base:G.base.hp/G.base.max,spawned:G.spawned,over,snaps:G.snaps,kills:G.kills,units:(G.sList||[]).map(i=>UNITS[i].name),inc:G.inc,start:BAL.food.start};
 };
 // 테스트용 자동 플레이 (#bot)
 function bot(dt){
