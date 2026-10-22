@@ -172,12 +172,13 @@ const CH={
    front(hx,hy){limb(hx-1,hy+12,hx+2,hy-18,3,'#8a5a32');poly([hx+2,hy-18,hx+14,hy-24,hx+16,hy-12,hx+3,hy-11]);P('#b8c2cc');
      if(at>0){ctx.save();glow('#7fd8ff',8);line(hx+10,hy-24,hx+18,hy-34,'#cfefff',2);line(hx+14,hy-14,hx+24,hy-10,'#cfefff',2);ctx.restore()}}});
  },
- ironman(sw,at,a){
-  Hm({top:'#c4222b',bot:'#c4222b',boot:'#e2b33a',arm:'#c4222b',glove:'#e2b33a',skin:'#c4222b'},sw*.3,at,{
+ ironman(sw,at,a,o){
+  Hm({top:'#c4222b',bot:'#c4222b',boot:'#e2b33a',arm:'#c4222b',glove:'#e2b33a',skin:'#c4222b'},sw*.3,at,{raise:o&&o.raise,
    back(){ctx.save();glow('#ffb347',10);for(const fx of[-3,5]){ell(fx,6,3,6+Math.sin(a*30+fx)*2);ctx.fillStyle='#ffd27a';ctx.fill()}ctx.restore()},
    chest(){ctx.save();glow('#9ff',10);circ(0,-29,4);P('#d9ffff');ctx.restore();rr(-11,-17,22,4,1);P('#e2b33a')},
    head(){rr(2,-56,13,16,5);P('#e2b33a');ctx.fillStyle='#dffaff';ctx.fillRect(5,-51,4,1.8);ctx.fillRect(10,-51,4,1.8)},
-   front(hx,hy){if(at>0){ctx.save();glow('#9ff',14);circ(hx+3,hy,4);ctx.fillStyle='#fff';ctx.fill();ctx.restore()}}});
+   front(hx,hy){if(o&&o.gaunt){ctx.save();circ(hx,hy,5.5);P('#e2b33a');['#c43','#fc3','#36f','#3c6','#f80','#a3f'].forEach((c,i)=>{glow(c,6);circ(hx-3+i%3*3,hy-1.5+(i>2?3:0),1.2);ctx.fillStyle=c;ctx.fill()});ctx.restore();return}
+     if(at>0){ctx.save();glow('#9ff',14);circ(hx+3,hy,4);ctx.fillStyle='#fff';ctx.fill();ctx.restore()}}});
  },
  warmachine(sw,at){
   Hm({top:'#5e656c',bot:'#3f444a',boot:'#2b2e32',arm:'#5e656c',glove:'#2b2e32',skin:'#5e656c'},sw,at,{lw:8,tw:25,
@@ -389,6 +390,7 @@ function dmg(e,n,src){
     e.hp=0;
     if(e.ship){finish('clear',true);return}
     if(e.struct){finish('over');return}
+    if(e===G.thanos){startEnding();return}
     kill(e);
   }
 }
@@ -401,7 +403,6 @@ function kill(e,dust){
   if(e===G.boss&&G.shieldOn){G.shieldOn=false;const bn=BAL.boss.bonus;G.food=Math.min(G.foodMax,G.food+bn);G.inc.boss+=bn;G.shake=.6;sfx('shatter');
     pop(e.def.name+' 격파! 방어막 해제',640,150,'#ffe14d',34);pop('식량 +'+bn,250,520,'#ffe9a8',30);
     for(let i=0;i<70;i++){const a=Math.random()*Math.PI*2;G.parts.push({x:1090+Math.cos(a)*215,y:340+Math.sin(a)*235,vx:Math.cos(a)*rnd(40,160),vy:Math.sin(a)*rnd(40,160),t:1,T:1,c:['#bfe6ff','#7cc8ff','#fff'][i%3],r:rnd(2,5),g:120})}}
-  if(e===G.thanos){dustAll(e);finish('clear')}
 }
 function dustAll(e){for(let i=0;i<120;i++)G.parts.push({x:e.x+rnd(-30,30),y:e.y-rnd(0,150),vx:rnd(20,120),vy:rnd(-80,-10),t:2.4,T:2.4,c:['#6b4f7a','#c9a227','#4a3c55'][i%3],r:rnd(2,6),g:-10})}
 function finish(res,ship){
@@ -421,8 +422,13 @@ function finish(res,ship){
 function spawnFoe(type,force){
   if(!force&&G.enemies.length>=45)return null;
   const e=mkUnit(FOES[type],'T',SPAWN_X+rnd(-8,8));e.wait=.5;G.enemies.push(e);G.beam=1;
-  if(e.def.role!=='mob'){pop(e.def.name+' 등장!',640,140,'#ff6a6a',34);sfx('boss');G.shake=.4;e.y=GROUND+2}
+  if(e.def.role!=='mob'){pop(e.def.name+' 등장!',640,140,'#ff6a6a',34);sfx('boss');e.y=GROUND+2;bossShock()}
   return e;
+}
+// 보스 등장 충격파: 피해 없이 아군 전원(캡틴 포함)을 뒤로 밀어내 군함에서 떼어 놓음
+function bossShock(){
+  const pb=BAL.boss.pushback;G.fx.push({k:'shock',x:SPAWN_X,y:GROUND-30,t:.9,T:.9});G.shake=.8;sfx('push');pop('충격파!',880,330,'#ffb3b3',30);
+  for(const a of G.allies){if(a.dead)continue;a.x=Math.max(BASE_X+20,a.x-pb);a.stun=Math.max(a.stun,.6);a.hit=.15}
 }
 function spawnThanos(){
   const th=spawnFoe('thanos',true);th.wait=1.6;th.slamT=BAL.foes.thanos.slamCd;th.half=0;G.thanos=th;G.shake=1;
@@ -473,6 +479,7 @@ function unitAI(u,dt){
   u.anim+=dt;u.hit=Math.max(0,u.hit-dt);u.atkT=Math.max(0,u.atkT-dt);u.slow=Math.max(0,u.slow-dt);
   if(u.wait>0){u.wait-=dt;return}
   if(u.stun>0){u.stun-=dt;u.walk=0;return}
+  if(u.side==='T'&&u.x>SHIP_X-40){u.walk=1;u.face=-1;u.x-=u.def.spd*(u.slow>0?.5:1)*dt;return}
   if(u.def.pushCd)ebonyPush(u,dt);
   u.cd-=dt;
   let t=findTarget(u),dir=u.side==='A'?1:-1;
@@ -519,6 +526,7 @@ function updateIntro(dt){
 }
 function update(dt){
   if(G.intro>0){updateIntro(dt);return}
+  if(G.ending){updateEnding(dt);return}
   G.t+=dt;
   G.food=Math.min(G.foodMax,G.food+G.foodRate*dt);G.inc.pass+=G.foodRate*dt;
   for(const k in G.skill)G.skill[k]=Math.max(0,G.skill[k]-dt);
@@ -630,11 +638,11 @@ function bot(dt){
 function drawUnit(u,o){
   const d=u.def,f=u.hero?u.face:(u.face||(u.side==='A'?1:-1)),sc=d.sc||1;
   const lift=d.fly?18+Math.sin(u.anim*3)*3:0;
-  ctx.save();if(u.dead)ctx.globalAlpha=Math.max(0,u.deadT/.5);
+  ctx.save();if(u.dead)ctx.globalAlpha=Math.max(0,u.deadT/.5);if(u.dustK)ctx.globalAlpha=1-u.dustK;
   drawChar(d.id,u.x,u.y,f,sc,u.anim,{walk:u.walk,atk:u.atkT>0?Math.sin(u.atkT/.3*Math.PI):0,hit:u.hit,lift,noShield:u.shieldOut||(o&&o.noShield),raise:u.raiseT>0,gaunt:u.gauntT>0,shout:o&&o.shout});
   ctx.restore();
   if(u.dead){if(u.hero&&u.deadT<=0)txt('부활까지 '+Math.ceil(u.reviveT)+'초',BASE_X+40,GROUND-40,18,'#9cc8ff','center');return}
-  if(o&&o.noBar)return;
+  if(o&&o.noBar||u.dustK||G.ending)return;
   const top=u.y-lift-68*sc,big=d.role&&d.role!=='mob';
   if(u.stun>0){for(let i=0;i<3;i++){const a=u.anim*5+i*2.1;star(u.x+Math.cos(a)*12,top+4+Math.sin(a)*3,4,'#ffe14d')}}
   if(u.slow>0){ctx.save();ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=1.2;for(let i=0;i<4;i++){ctx.beginPath();ctx.moveTo(u.x-12,u.y-6-i*8);ctx.lineTo(u.x+12,u.y-10-i*8);ctx.stroke()}ctx.restore()}
@@ -664,6 +672,8 @@ function drawFx(f){
     case 'slash':ctx.globalAlpha=k;ctx.strokeStyle=f.c;ctx.lineWidth=4;ctx.beginPath();ctx.arc(f.x,f.y,16+(1-k)*8,(f.dir>0?-1.2:1.9),(f.dir>0?1.2:4.3));ctx.stroke();break;
     case 'smash':ctx.globalAlpha=k;ctx.strokeStyle='#fff3c4';ctx.lineWidth=5;ell(f.x,f.y,f.r*(1.2-k*.5),f.r*.25*(1.2-k*.5));ctx.stroke();ctx.fillStyle='rgba(120,90,60,.5)';for(let i=0;i<5;i++){circ(f.x+(i-2)*f.r*.35,f.y-14*(1-k)-i%2*8,8*k+3);ctx.fill()}break;
     case 'burst':ctx.globalAlpha=k;glow(f.c,14);ctx.strokeStyle=f.c;ctx.lineWidth=4;circ(f.x,f.y,f.r*(1-k*.6));ctx.stroke();break;
+    case 'shock':{const r=(1-k)*1000+40;ctx.globalAlpha=k;glow('#ffb3b3',20);ctx.strokeStyle='#fff3e8';ctx.lineWidth=8*k+2;ctx.beginPath();ctx.ellipse(f.x,f.y,r,r*.32,0,Math.PI*.5,Math.PI*1.5);ctx.stroke();
+      ctx.fillStyle='rgba(140,110,80,.45)';for(let i=0;i<8;i++){circ(f.x-r+i*14,f.y+20-i%3*6,10*k+4);ctx.fill()}break}
     case 'wave':ctx.globalAlpha=k*.8;glow('#6cf',16);ctx.strokeStyle='#9fd8ff';ctx.lineWidth=6;ctx.beginPath();ctx.arc(f.x,f.y,f.r*(1-k)+20,Math.PI*.6,Math.PI*1.4);ctx.stroke();break;
     case 'bolt':{ctx.globalAlpha=k;glow('#9fe0ff',16);ctx.strokeStyle='#e8f8ff';ctx.lineWidth=f.short?2:4;ctx.beginPath();let x=f.x,y=f.short?f.y-30:0;ctx.moveTo(x,y);
       while(y<f.y){y+=f.short?8:28;x=f.x+rnd(-12,12);ctx.lineTo(x,Math.min(y,f.y))}ctx.stroke();break}
@@ -692,12 +702,49 @@ function drawScene(){
   drawWorld();ctx.restore();
   if(G.flash>0){ctx.fillStyle=`rgba(255,250,235,${Math.min(.85,G.flash)})`;ctx.fillRect(0,0,W,H)}
 }
+// ───────── 엔딩: 아이언맨이 건틀릿을 차고 "I'M IRON MAN" → 스냅 → 타노스와 군단이 먼지로 ─────────
+// 0~1.2초 아이언맨 날아와 착지, 1.6초 대사, 4.3초 손을 들고 4.7초 스냅, 5.2초부터 적이 차례로 먼지가 되고 타노스가 마지막, 9초 결과 화면
+// 확대 카메라 중심을 화면 안쪽으로 제한
+const camX=(x,z)=>clamp(x,W/(2*z),W-W/(2*z)),camY=(y,z)=>clamp(y,H/(2*z),H-H/(2*z));
+function startEnding(){
+  const th=G.thanos;th.hp=0;th.stun=99;G.projs.length=0;G.says.length=0;
+  G.tony={x:Math.max(BASE_X+120,th.x-190),y:GROUND+2,anim:0,dead:0,def:{sc:1.35}};
+  const foes=G.enemies.filter(e=>!e.dead&&e!==th).sort((a,b)=>b.x-a.x);
+  foes.forEach((e,i)=>{e.dustAt=5.2+i*.12;e.stun=99});th.dustAt=5.4+foes.length*.12+.4;
+  G.ending={t:0};
+}
+function updateEnding(dt){
+  const E=G.ending,t0=E.t;E.t+=dt;const t=E.t;G.tony.anim+=dt;
+  for(const u of[...G.allies,...G.enemies]){u.anim+=dt;u.hit=Math.max(0,u.hit-dt);u.atkT=0}
+  if(t0<1.6&&t>=1.6)say(G.tony,"I'M IRON MAN",2.6);
+  if(t0<4.7&&t>=4.7){sfx('snap');G.flash=1;G.shake=.5;pop('SNAP!',G.tony.x,G.tony.y-150,'#ffd23a',44)}
+  for(const e of G.enemies){if(e.dead||e.dustAt==null||t<e.dustAt)continue;
+    e.dustK=Math.min(1,(t-e.dustAt)/1.6);const sc=e.def.sc||1;
+    if(Math.random()<.9)for(let i=0;i<Math.ceil(sc*2);i++)G.parts.push({x:e.x+rnd(-12,12)*sc,y:e.y-rnd(0,62)*sc,vx:rnd(30,110),vy:rnd(-50,-5),t:1.8,T:1.8,c:['#6b5a48','#8a7560','#4a3c30','#7a6a88'][i%4],r:rnd(1.5,4),g:-8});
+    if(e.dustK>=1){e.dead=1;e.deadT=0}}
+  updateFx(dt);
+  if(t>=9){G.thanos.dead=1;G.ending=null;finish('clear');G.end=1.2}
+}
+function drawEnding(){
+  const E=G.ending,t=E.t,tn=G.tony,th=G.thanos,out=clamp((t-7.6)/.8,0,1),inn=ease(clamp(t/1.2,0,1));
+  const z=lerp(1,lerp(1.9,1,ease(out)),inn),cx=lerp(W/2,lerp((tn.x+th.x)/2,W/2,ease(out)),inn),cy=lerp(H/2,lerp(GROUND-120,H/2,ease(out)),inn);
+  ctx.save();if(G.shake>0)ctx.translate(rnd(-6,6)*G.shake,rnd(-6,6)*G.shake);
+  ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);ctx.translate(W/2,H/2);ctx.scale(z,z);ctx.translate(-camX(cx,z),-camY(cy,z));
+  drawWorld({noBar:1});
+  const fly=clamp(1-t/1.2,0,1),x=tn.x-ease(fly)*420,lift=fly>0?fly*140+20:0;
+  drawChar('ironman',x,tn.y,1,1.35,tn.anim,{gaunt:1,raise:t>=4.3&&t<6.5,lift,walk:0});
+  if(t>=4.7&&t<5.3){ctx.save();glow('#fff',30);ctx.globalAlpha=1-(t-4.7)/.6;circ(x+23,tn.y-92,18+(t-4.7)*80);ctx.strokeStyle='#ffe9a8';ctx.lineWidth=4;ctx.stroke();ctx.restore()}
+  ctx.restore();
+  if(G.flash>0){ctx.fillStyle=`rgba(255,250,235,${Math.min(.9,G.flash)})`;ctx.fillRect(0,0,W,H)}
+  const lb=80*(1-out)*inn;ctx.fillStyle='#000';ctx.fillRect(0,0,W,lb);ctx.fillRect(0,H-lb,W,lb);
+  if(lb>0)txt('SPACE 건너뛰기',W-30,H-lb/2,16,'#aaa','right',UI,0);
+}
 // 어셈블 인트로 (시계 = Assemble.m4a 재생 위치): 1초 "어벤져스", 5~6초 묠니르가 날아옴, 6초 잡음, 7초 "어셈블", 7.6초부터 줌아웃
 function drawIntro(){
   const c=G.cap,e=INTRO_T-G.intro,out=clamp((e-7.6)/.6,0,1),z=lerp(3.1+Math.min(e,6)*.06,1,ease(out));
   const cx=lerp(c.x+30,W/2,ease(out)),cy=lerp(c.y-30,H/2,ease(out));
   ctx.save();if(G.shake>0)ctx.translate(rnd(-6,6)*G.shake,rnd(-6,6)*G.shake);
-  ctx.translate(W/2,H/2);ctx.scale(z,z);ctx.translate(-cx,-cy);
+  ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);ctx.translate(W/2,H/2);ctx.scale(z,z);ctx.translate(-camX(cx,z),-camY(cy,z));
   drawWorld({noBar:1,shout:e>=6.8});
   // 날아오는 묠니르
   if(e>=5&&e<6){const k=ease(e-5),hx=c.x+6,hy=c.y-90;const x=lerp(c.x+330,hx,k),y=lerp(c.y-112,hy,k);
@@ -797,7 +844,6 @@ function drawTitle(){
   overlay(.25);
   txt('AVENGERS',640,170,42,'#cfe3ff','center',LOGO,8);
   txt('ENDGAME',640,250,110,'#ffcf3a','center',LOGO,12);
-  txt('THE LAST STAND',640,325,30,'#fff','center',LOGO,6);
   if(Math.sin(uiT*4)>-.3)txt('PRESS SPACE TO START',640,640,30,'#fff','center',LOGO,6);
   btn(1236,30,'?');btn(1188,30,muted?'×':'♪');
   ctx.save();ctx.lineWidth=3;ctx.strokeStyle=OUT;rr(BALBTN.x,BALBTN.y-BALBTN.h/2,BALBTN.w,BALBTN.h,8);P('#3a2f2a');ctx.restore();
@@ -842,6 +888,7 @@ function render(){
   if(STATE==='title')drawTitle();
   else if(STATE==='select')drawSelect();
   else if(G.intro>0)drawIntro();
+  else if(G.ending&&STATE==='play')drawEnding();
   else{drawScene();drawHUD();
     if(G.banner>0&&G.end<=0&&STATE==='play'){const a=Math.min(1,G.banner);ctx.globalAlpha=a;txt(G.st.name,640,250,64,'#ffcf3a','center',LOGO,10);txt(G.st.sub,640,315,32,'#fff','center',LOGO,6);ctx.globalAlpha=1}
     if(STATE==='result')drawResult();
@@ -856,6 +903,7 @@ function onSpace(){
   if(STATE==='title'){STATE='select';SEL=Math.min(cleared,4)}
   else if(STATE==='select')startStage(SEL);
   else if(STATE==='play'&&G.intro>0){G.intro=Math.min(G.intro,.6);stopVoice()}
+  else if(STATE==='play'&&G.ending&&G.ending.t<8.6){G.ending.t=8.6;for(const e of G.enemies)if(!e.dead){e.dead=1;e.deadT=0}}
   else if(STATE==='result'){if(G.resT<(G.newUnits.length?2.4:.5))return;if(G.result==='clear'){STATE='select';SEL=Math.min(cleared,4)}else newGame(G.si)}
 }
 function toggleMute(){muted=!muted;lsSet('endgame_mute',muted);if(muted)stopVoice();if(ytReady)muted?yt.mute():yt.unMute()}
