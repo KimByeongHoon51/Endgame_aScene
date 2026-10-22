@@ -98,6 +98,8 @@ function sel(v,path,opts){
   return `<td class="${chg?'chg':''}"><select data-p="${path.join('.')}">${opts.map(o=>`<option value="${o[0]}" ${o[0]===v?'selected':''}>${o[1]}</option>`).join('')}</select></td>`;
 }
 const r1=n=>Math.round(n*10)/10;
+// 적정 판정 기준: 역할별 지수(전사 k¹ = 근접전, 원거리 k² = 원거리전)와 적정 범위
+const ROLEX={W:1,R:2},BAND=[0.8,1.25];
 function build(){
   let h='';
   // 단일 값 그룹
@@ -111,14 +113,16 @@ function build(){
   const pw=u=>u.hp*u.atk/u.rate*(u.multi||1),ref=B.units[0],refP=pw(ref);
   h+='<section><h2>어벤져스 유닛</h2><p class="note">카드 순서 = 숫자키 1~9. 해금 스테이지 1 = 처음부터. 범위 반경·둔화·동시 공격은 0이면 없음 (공격 방식 자체는 코드에 고정: 헐크·스트레인지 범위, 스파이더맨 둔화, 스칼렛 위치 동시 공격).</p>'+
     `<p class="note"><b>효율 지표</b> — 전투력 = 체력×DPS, 기준 = ${ref.name}(=1). <b>효율 A</b> = 전투력÷비용 (근접전처럼 한 줄로 싸울 때), <b>효율 B</b> = 전투력÷비용² (원거리처럼 다 같이 쏠 때 — 싼 유닛을 많이 뽑으면 제곱으로 강해짐).<br>
-    비용이 기준의 k배면 전투력은 기준의 <b>k배~k²배</b>가 적정 (근접 전사는 k배 쪽, 원거리는 k² 쪽). 범위·둔화·사거리 같은 특수 능력이 있으면 「약함」이어도 정상일 수 있음 → 아래 시뮬레이터로 확인.</p><div class="wrap"><table><tr>`+
-    uk.map(k=>`<th>${L[k]}</th>`).join('')+'<th>DPS<small>공격력÷간격×동시</small></th><th>전투력<small>체력×DPS</small></th><th>효율 A<small>÷비용</small></th><th>효율 B<small>÷비용²</small></th><th>적정 판정<small>k배~k²배 중 위치</small></th></tr>';
+    <b>적정 판정</b> — 역할마다 기준선이 다름: 비용이 기준의 k배일 때 전사는 <b>근접 기준</b> 전투력 k<sup>a</sup>배, 원거리는 <b>원거리 기준</b> k<sup>b</sup>배 (a = <input data-rolex="W" type="number" step="0.1" value="${ROLEX.W}" style="width:52px">, b = <input data-rolex="R" type="number" step="0.1" value="${ROLEX.R}" style="width:52px"> — 기본 1과 2). 기준선의 ${BAND[0]}~${BAND[1]}배면 적정, 아래면 약함 ▼, 위면 강함 ▲.<br>
+    범위·둔화·동시 공격·긴 사거리(맞지 않고 때림)는 이 계산에 안 들어가므로, 그런 능력이 있으면 「약함」이어도 정상일 수 있음 → 아래 시뮬레이터로 확인.</p><div class="wrap"><table><tr>`+
+    uk.map(k=>`<th>${L[k]}</th>`).join('')+'<th>DPS<small>공격력÷간격×동시</small></th><th>전투력<small>체력×DPS</small></th><th>효율 A<small>÷비용</small></th><th>효율 B<small>÷비용²</small></th><th>적정 판정<small>역할 기준선 대비</small></th></tr>';
   B.units.forEach((u,i)=>{const dps=u.atk/u.rate*(u.multi||1),p=pw(u),k=u.cost/ref.cost,ea=p/u.cost/(refP/ref.cost),eb=p/u.cost/u.cost/(refP/ref.cost/ref.cost);
-    const lo=refP*k,hi=refP*k*k;let verdict;
-    if(i===0)verdict='<span style="color:var(--dim)">기준</span>';
-    else if(p<lo)verdict=`<span style="color:#ff8a8a">약함 ▼ 하한의 ${r1(p/lo)}배</span>`;
-    else if(p>hi)verdict=`<span style="color:#ffcf3a">강함 ▲ 상한의 ${r1(p/hi)}배</span>`;
-    else verdict=`<span style="color:#7dff5a">적정 ${Math.round(Math.log(p/lo)/Math.log(hi/lo||1)*100)||0}%</span>`;
+    // 전사 = 근접 기준(k^a), 원거리 = 원거리 기준(k^b)
+    const role=u.cls==='W'?'근접 기준':'원거리 기준',ratio=p/(refP*Math.pow(k,ROLEX[u.cls]||1));let verdict;
+    if(i===0)verdict='<span style="color:var(--dim)">기준 유닛</span>';
+    else if(ratio<BAND[0])verdict=`<span style="color:#ff8a8a">${role} ${r1(ratio)}배 · 약함 ▼</span>`;
+    else if(ratio>BAND[1])verdict=`<span style="color:#ffcf3a">${role} ${r1(ratio)}배 · 강함 ▲</span>`;
+    else verdict=`<span style="color:#7dff5a">${role} ${r1(ratio)}배 · 적정</span>`;
     const sp=[u.aoe?'범위':'',u.slow?'둔화':'',u.multi>1?'동시':'',u.range>150?'원거리':''].filter(Boolean).join('·');
     h+='<tr>'+uk.map(k=>k==='cls'?sel(u.cls,['units',i,'cls'],[['W','전사'],['R','원거리']]):inp(u[k],['units',i,k],k==='name')).join('')+
       `<td class="calc">${r1(dps)}</td><td class="calc">${Math.round(p).toLocaleString()}</td><td class="calc">${r1(ea)}</td><td class="calc">${Math.round(eb*100)/100}</td><td>${verdict}${sp?`<small style="display:block;color:var(--dim)">${sp}</small>`:''}</td></tr>`});
@@ -142,7 +146,7 @@ function build(){
   document.getElementById('root').innerHTML=h;
 }
 function setPath(p,v){const ks=p.split('.');let o=B;for(let i=0;i<ks.length-1;i++)o=o[ks[i]];const k=ks[ks.length-1];o[k]=typeof o[k]==='number'?(v===''?0:+v):v}
-document.getElementById('root').addEventListener('change',e=>{const t=e.target;if(!t.dataset.p)return;setPath(t.dataset.p,t.value);build();flash('저장 안 됨',1)});
+document.getElementById('root').addEventListener('change',e=>{const t=e.target;if(t.dataset.rolex){ROLEX[t.dataset.rolex]=+t.value||1;build();return}if(!t.dataset.p)return;setPath(t.dataset.p,t.value);build();flash('저장 안 됨',1)});
 function flash(s,warn){const m=document.getElementById('msg');m.textContent=s;m.style.color=warn?'#ffb39a':'#7dff5a'}
 document.getElementById('save').onclick=()=>{try{localStorage.setItem(KEY,JSON.stringify(B));flash('저장됨 — 게임을 새로고침하면 적용')}catch(e){flash('저장 실패',1)}};
 document.getElementById('revert').onclick=()=>{B=loadSaved();build();flash('저장값 불러옴')};
