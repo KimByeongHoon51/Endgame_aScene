@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Endgame 밸런스 테이블</title>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Jua&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#1d1512;--panel:#2a201b;--line:#4a3a30;--text:#f3e6d0;--dim:#b9a58c;--gold:#ffcf3a;--blue:#9fd0ff;--red:#ffb39a;--chg:#5a4512}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 Jua,sans-serif}
+header{position:sticky;top:0;z-index:5;background:#120d0b;border-bottom:2px solid var(--line);padding:12px 16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+h1{font:28px "Black Han Sans",Jua,sans-serif;color:var(--gold);margin:0 12px 0 0}
+button,a.btn{font:inherit;background:#3a2f2a;color:var(--text);border:2px solid #1c1410;border-radius:8px;padding:6px 12px;cursor:pointer;text-decoration:none}
+button.main{background:var(--gold);color:#1c1410}
+button:hover,a.btn:hover{filter:brightness(1.2)}
+#msg{color:#7dff5a;min-width:120px}
+main{padding:16px;max-width:1500px;margin:auto}
+section{background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:16px}
+h2{font:22px "Black Han Sans",Jua,sans-serif;margin:0 0 4px;color:var(--gold)}
+p.note{margin:0 0 10px;color:var(--dim);font-size:14px}
+.wrap{overflow-x:auto}
+table{border-collapse:collapse;white-space:nowrap}
+th,td{border:1px solid var(--line);padding:3px 6px;text-align:center}
+th{background:#35281f;font-weight:normal;color:var(--gold)}
+th small{display:block;color:var(--dim);font-size:11px}
+td.k{text-align:left;color:var(--dim)}
+td.calc{color:var(--blue)}
+input,select{font:inherit;width:70px;background:#120d0b;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:2px 4px;text-align:right}
+input.txt{width:130px;text-align:left}
+td.chg input,td.chg select{background:var(--chg);border-color:var(--gold)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.grid table{width:100%}
+.W{color:var(--red)}.R{color:var(--blue)}
+</style>
+</head>
+<body>
+<header>
+  <h1>⚙ 밸런스 테이블</h1>
+  <button class="main" id="save">저장 → 게임에 적용</button>
+  <button id="revert">저장값 다시 불러오기</button>
+  <button id="reset">기본값(balance.js)으로</button>
+  <button id="export">balance.js 내보내기</button>
+  <a class="btn" href="index.html">게임 열기</a>
+  <span id="msg"></span>
+</header>
+<main>
+  <p class="note">값을 바꾸고 <b>저장</b>하면 같은 브라우저의 게임에 바로 적용됩니다 (게임 새로고침). 노란 칸 = 기본값과 다른 값. 확정한 값은 <b>balance.js 내보내기</b>로 받은 파일을 게임 폴더의 balance.js와 바꾸면 기본값이 됩니다. 파란 글씨는 자동 계산값입니다.</p>
+  <div id="root"></div>
+</main>
+<script src="balance.js"></script>
+<script>
+'use strict';
+const KEY='endgame_balance',DEF=window.BALANCE_DEFAULT;
+const clone=o=>JSON.parse(JSON.stringify(o));
+function mergeB(d,o){if(o==null)return d;if(Array.isArray(d))return d.map((x,i)=>mergeB(x,o[i]));if(d&&typeof d==='object'){const r={};for(const k in d)r[k]=mergeB(d[k],o[k]);return r}return typeof o===typeof d?o:d}
+function loadSaved(){try{const s=localStorage.getItem(KEY);return s?mergeB(clone(DEF),JSON.parse(s)):clone(DEF)}catch(e){return clone(DEF)}}
+let B=loadSaved();
+
+// 항목 설명
+const L={hp:'체력',atk:'공격력',rate:'공격 간격(초)',range:'사거리',spd:'이동 속도',revive:'부활 시간(초)',regen:'초당 회복',start:'시작 식량',max:'최대 식량',
+  cd:'재사용(초)',dmg:'피해',dist:'날아가는 거리',stun:'기절(초)',front:'앞쪽 범위',back:'뒤쪽 범위',need:'게이지 최대치',pct:'일반 적 감소%',bossPct:'보스 감소%',
+  name:'이름',cls:'직업',cost:'식량',aoe:'범위 반경',slow:'둔화(초)',multi:'동시 공격',unlock:'해금 스테이지',food:'처치 식량',gauge:'건틀릿 게이지',
+  pushCd:'염력 간격(초)',push:'밀어내는 거리',pushRange:'염력 범위',slamCd:'내려찍기 간격',slamDmg:'내려찍기 피해',slamRange:'내려찍기 범위',slamPush:'밀어내는 거리',
+  sub:'부제',foodRate:'초당 식량',shipHp:'군함 체력',int0:'생성 간격 시작',int1:'생성 간격 2분 후',mob:'잡몹 수 배율',foodMul:'잡몹 식량 배율',
+  outrider:'아웃라이더 비율',chitauri:'치타우리 비율',brute:'고릴라 비율',boss:'보스',bossTime:'보스 등장(초)',bossShip:'보스 등장(군함 체력%)',orderGap:'블랙 오더 출격 간격(초)'};
+const GROUPS=[['cap','캡틴 아메리카'],['base','어벤져스 건물'],['food','식량'],['shield','방패 던지기 (Q)'],['thunder','묠니르 번개 (W)'],['gaunt','인피니티 건틀릿 (E)'],['final','FINAL 스테이지']];
+const NOTES={gaunt:'적을 잡을 때 적 표의 「건틀릿 게이지」만큼 차고 다음 스테이지로 이월. 일반 적은 최대 체력의 pct%, 보스·타노스는 bossPct%만큼 체력 감소.',
+  final:'블랙 오더 4명(컬→프록시마→코르버스→에보니)이 스테이지 표의 「보스 등장(초)」부터 이 간격으로 출격, 모두 쓰러지면 타노스 등판.'};
+
+function inp(v,path,isText){
+  const d=path.reduce((o,k)=>o&&o[k],DEF),chg=JSON.stringify(d)!==JSON.stringify(v);
+  return `<td class="${chg?'chg':''}"><input ${isText?'class="txt"':''} data-p="${path.join('.')}" value="${v}" ${isText?'':'type="number" step="any"'}></td>`;
+}
+function sel(v,path,opts){
+  const d=path.reduce((o,k)=>o&&o[k],DEF),chg=d!==v;
+  return `<td class="${chg?'chg':''}"><select data-p="${path.join('.')}">${opts.map(o=>`<option value="${o[0]}" ${o[0]===v?'selected':''}>${o[1]}</option>`).join('')}</select></td>`;
+}
+const r1=n=>Math.round(n*10)/10;
+function build(){
+  let h='';
+  // 단일 값 그룹
+  h+='<section><h2>캡틴 · 건물 · 스킬</h2><p class="note">'+NOTES.gaunt+'<br>'+NOTES.final+'</p><div class="grid">';
+  for(const[g,t]of GROUPS){h+=`<div><table><tr><th colspan="2">${t}</th></tr>`;for(const k in B[g])h+=`<tr><td class="k">${L[k]||k}</td>${inp(B[g][k],[g,k])}</tr>`;
+    if(g==='cap')h+=`<tr><td class="k">초당 피해(DPS)</td><td class="calc">${r1(B.cap.atk/B.cap.rate)}</td></tr>`;h+='</table></div>'}
+  h+='</div></section>';
+  // 유닛
+  const uk=['name','cls','cost','cd','hp','atk','rate','range','spd','aoe','slow','multi','unlock'];
+  h+='<section><h2>어벤져스 유닛</h2><p class="note">카드 순서 = 숫자키 1~9. 해금 스테이지 1 = 처음부터. 범위 반경·둔화·동시 공격은 0이면 없음 (공격 방식 자체는 코드에 고정: 헐크·스트레인지 범위, 스파이더맨 둔화, 스칼렛 위치 동시 공격).</p><div class="wrap"><table><tr>'+
+    uk.map(k=>`<th>${L[k]}</th>`).join('')+'<th>DPS<small>공격력÷간격×동시</small></th><th>DPS/식량</th><th>체력/식량</th></tr>';
+  B.units.forEach((u,i)=>{const dps=u.atk/u.rate*(u.multi||1);
+    h+='<tr>'+uk.map(k=>k==='cls'?sel(u.cls,['units',i,'cls'],[['W','전사'],['R','원거리']]):inp(u[k],['units',i,k],k==='name')).join('')+
+      `<td class="calc">${r1(dps)}</td><td class="calc">${r1(dps/u.cost)}</td><td class="calc">${r1(u.hp/u.cost)}</td></tr>`});
+  h+='</table></div></section>';
+  // 적
+  const fk=['name','hp','atk','rate','range','spd','aoe','food','gauge'],FN={outrider:'잡몹',chitauri:'잡몹',brute:'잡몹',cull:'보스 1',proxima:'보스 2',corvus:'보스 3',ebony:'보스 4',thanos:'최종 보스'};
+  h+='<section><h2>타노스 군단</h2><p class="note">잡몹의 처치 식량에는 스테이지 표의 「잡몹 식량 배율」이 곱해집니다. 범위 반경 0 = 단일 공격.</p><div class="wrap"><table><tr><th>구분</th>'+
+    fk.map(k=>`<th>${L[k]}</th>`).join('')+'<th>DPS</th><th>특수 능력</th></tr>';
+  for(const id in B.foes){const f=B.foes[id],ex=Object.keys(f).filter(k=>!fk.includes(k));
+    h+=`<tr><td class="k">${FN[id]||''}</td>`+fk.map(k=>inp(f[k],['foes',id,k],k==='name')).join('')+`<td class="calc">${r1(f.atk/f.rate)}</td><td>`+
+      (ex.length?`<table>${ex.map(k=>`<tr><td class="k">${L[k]||k}</td>${inp(f[k],['foes',id,k])}</tr>`).join('')}</table>`:'')+'</td></tr>'}
+  h+='</table></div></section>';
+  // 스테이지
+  const sk=['name','sub','foodRate','shipHp','int0','int1','mob','foodMul','outrider','chitauri','brute','boss','bossTime','bossShip'];
+  const bossOpts=['cull','proxima','corvus','ebony','thanos'].map(id=>[id,B.foes[id].name]);
+  h+='<section><h2>스테이지</h2><p class="note">잡몹 생성 간격은 120초에 걸쳐 「시작」→「2분 후」로 줄어들고, 「잡몹 수 배율」만큼 더 자주 나옵니다. 보스는 「보스 등장(초)」이 되거나 군함 체력이 「%」 이하가 되면 등장 (FINAL은 블랙 오더 첫 출격 시각).</p><div class="wrap"><table><tr>'+
+    sk.map(k=>`<th>${L[k]}</th>`).join('')+'<th>예상 잡몹/분<small>2분 이후</small></th></tr>';
+  B.stages.forEach((s,i)=>{h+='<tr>'+sk.map(k=>k==='boss'?sel(s.boss,['stages',i,'boss'],bossOpts):inp(s[k],['stages',i,k],k==='name'||k==='sub')).join('')+
+    `<td class="calc">${r1(60/(s.int1/s.mob)*1.85)}</td></tr>`});
+  h+='</table></div></section>';
+  document.getElementById('root').innerHTML=h;
+}
+function setPath(p,v){const ks=p.split('.');let o=B;for(let i=0;i<ks.length-1;i++)o=o[ks[i]];const k=ks[ks.length-1];o[k]=typeof o[k]==='number'?(v===''?0:+v):v}
+document.getElementById('root').addEventListener('change',e=>{const t=e.target;if(!t.dataset.p)return;setPath(t.dataset.p,t.value);build();flash('저장 안 됨',1)});
+function flash(s,warn){const m=document.getElementById('msg');m.textContent=s;m.style.color=warn?'#ffb39a':'#7dff5a'}
+document.getElementById('save').onclick=()=>{try{localStorage.setItem(KEY,JSON.stringify(B));flash('저장됨 — 게임을 새로고침하면 적용')}catch(e){flash('저장 실패',1)}};
+document.getElementById('revert').onclick=()=>{B=loadSaved();build();flash('저장값 불러옴')};
+document.getElementById('reset').onclick=()=>{if(!confirm('저장한 값을 지우고 balance.js 기본값으로 되돌릴까요?'))return;try{localStorage.removeItem(KEY)}catch(e){}B=clone(DEF);build();flash('기본값으로 되돌림')};
+document.getElementById('export').onclick=()=>{
+  const body='// Endgame_aScene 밸런스 테이블\n// balance.html에서 수정 → \'저장\'하면 같은 브라우저의 게임에 바로 적용, \'balance.js 내보내기\'로 이 파일을 교체하면 기본값이 됨\nwindow.BALANCE_DEFAULT = '+JSON.stringify(B,null,2)+';\n';
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([body],{type:'text/javascript'}));a.download='balance.js';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);flash('balance.js 내려받음')};
+build();
+</script>
+</body>
+</html>
