@@ -364,7 +364,7 @@ function newGame(si){
   const st=STAGES[si];
   G={si,st,t:0,food:DBG.food||BAL.food.start,foodMax:BAL.food.max,foodRate:st.foodRate,allies:[],enemies:[],projs:[],fx:[],parts:[],texts:[],says:[],
     gauge:DBG.gauge?BAL.gaunt.need:(gaugeAt[si]||0),skill:{shield:0,thunder:0},ucd:UNITS.map(()=>0),spawnT:4,beam:0,flash:0,shake:0,
-    kills:0,end:0,result:null,botT:0,resT:0,newUnits:[],snaps:0,spawned:0,sCyc:0,queue:[],inc:{pass:0,mob:0,boss:0},
+    kills:0,end:0,result:null,botT:0,resT:0,newUnits:[],snaps:0,spawned:0,sCyc:0,queue:[],inc:{pass:0,mob:0,boss:0},ust:{},
     pool:{outrider:st.outrider,chitauri:st.chitauri,brute:st.brute},
     base:{struct:1,x:BASE_X,y:GROUND,hp:BAL.base.hp,max:BAL.base.hp,hit:0},
     ship:st.boss==='thanos'?null:{struct:1,ship:1,x:SHIP_X,y:GROUND,hp:st.shipHp,max:st.shipHp,hit:0},
@@ -381,10 +381,15 @@ function tY(e){if(e.struct)return e.ship?330:420;return e.y-30*(e.def.sc||1)-(e.
 function reach(e){return e.struct?6:10*(e.def.sc||1)}
 const isBoss=e=>e.def.role==='boss'||e.def.role==='thanos';
 
+// 유닛별 실측 통계 (전략 시뮬레이터용): 준 피해·맞힌 횟수·공격 횟수·생존 시간·받은 피해·둔화시킨 시간
+function ust(id){return G.ust[id]||(G.ust[id]={dmg:0,hits:0,atks:0,alive:0,taken:0,spawned:0,slowT:0})}
 function dmg(e,n,src){
   if(e.dead||G.end>0)return;
   if(DBG.god&&e.side==='A'&&!e.ship)return;
   if(e.ship&&G.shieldOn){n*=1-BAL.boss.shieldPct/100;G.shieldHit=.15}
+  const real=Math.min(n,Math.max(0,e.hp));
+  if(src&&src.side==='A'&&!src.hero&&!e.struct){const s=ust(src.def.id);s.dmg+=real;s.hits++}
+  if(e.side==='A'&&!e.hero&&!e.struct)ust(e.def.id).taken+=real;
   e.hp-=n;e.hit=.1;if(e.hero)e.regenT=3;
   if(e.hp<=0){
     e.hp=0;
@@ -453,7 +458,7 @@ function findTarget(u){
 function foesInRange(u){const dir=u.side==='A'?1:-1,foes=u.side==='A'?G.enemies:G.allies;return foes.filter(e=>!e.dead&&(e.x-u.x)*dir>=-20&&(e.x-u.x)*dir<=u.def.range+reach(e)).sort((a,b)=>(a.x-u.x)*dir-(b.x-u.x)*dir)}
 function aoe(side,x,r,n,src){for(const e of(side==='A'?G.enemies:G.allies))if(!e.dead&&Math.abs(e.x-x)<=r+reach(e))dmg(e,n,src)}
 function attack(u,t){
-  const d=u.def,dir=u.face||(u.side==='A'?1:-1),sc=d.sc||1;u.atkT=.3;
+  const d=u.def,dir=u.face||(u.side==='A'?1:-1),sc=d.sc||1;u.atkT=.3;if(u.side==='A')ust(d.id).atks++;
   const hx=u.x+dir*16*sc,hy=u.y-(d.fly?44:28)*sc;
   if(d.multi){const list=foesInRange(u).slice(0,d.multi);if(!list.length)list.push(t);
     for(const e of list){dmg(e,d.atk,u);G.fx.push({k:'beam',x1:hx,y1:hy,x2:e.x,y2:tY(e),c:'#ff2d55',w:6,t:.3,T:.3})}sfx('chaos');return}
@@ -489,16 +494,16 @@ function unitAI(u,dt){
   if(u.wait>0){u.wait-=dt;return}
   if(u.stun>0){u.stun-=dt;u.walk=0;return}
   if(u.def.throwCd)spearThrow(u,dt); // 걸어 나오는 중에도 던짐
-  if(u.side==='T'&&u.x>SHIP_X-40){u.walk=1;u.face=-1;u.x-=u.def.spd*(u.slow>0?.5:1)*dt;return}
+  if(u.side==='T'&&u.x>SHIP_X-40){u.walk=1;u.face=-1;u.x-=u.def.spd*(u.slow>0?1-BAL.debuff.slowMove/100:1)*dt;return}
   if(u.def.pushCd)ebonyPush(u,dt);
-  u.cd-=dt;
+  u.cd-=dt*(u.slow>0?1-BAL.debuff.slowAtk/100:1); // 둔화: 공격 속도도 slowAtk%만큼 느려짐
   let t=findTarget(u),dir=u.side==='A'?1:-1;
   // 아군: 군함만 때릴 상황인데 뒤로 지나간 적이 있으면 군함 대신 그 적에게 돌아감
   // 방어막이 켜져 있으면 거리 제한 없이, 꺼져 있으면 CHASE 안쪽 적만 쫓아감
   if(u.side==='A'&&(!t||t.struct)){let bd=G.shieldOn?1e9:CHASE,c=null;for(const e of G.enemies){if(e.dead||e.wait>0)continue;const d=u.x-e.x;if(d>20&&d<bd){bd=d;c=e}}if(c){t=null;dir=-1}}
   u.face=t?(Math.sign(t.x-u.x)||dir):dir;if(t&&t.struct)u.face=u.side==='A'?1:-1;
   if(t){u.walk=0;if(u.cd<=0){u.cd=u.def.rate;attack(u,t)}}
-  else{u.walk=1;u.x+=dir*u.def.spd*(u.slow>0?.5:1)*dt;u.x=u.side==='A'?Math.min(u.x,SHIP_X-12):Math.max(u.x,BASE_X+12);if((u.side==='A'&&u.x>=SHIP_X-12)||(u.side==='T'&&u.x<=BASE_X+12))u.walk=0}
+  else{u.walk=1;u.x+=dir*u.def.spd*(u.slow>0?1-BAL.debuff.slowMove/100:1)*dt;u.x=u.side==='A'?Math.min(u.x,SHIP_X-12):Math.max(u.x,BASE_X+12);if((u.side==='A'&&u.x>=SHIP_X-12)||(u.side==='T'&&u.x<=BASE_X+12))u.walk=0}
 }
 
 // ───────── 캡틴 아메리카 스킬 ─────────
@@ -517,7 +522,7 @@ function useSkill(i){
 function spawnUnit(i){
   if(STATE!=='play'||paused||help||G.end>0||G.intro>0)return;const d=UNITS[i];
   if(!isUnlocked(d,G.si)||G.ucd[i]>0||G.food<d.cost||G.allies.length>=40){sfx('no');return}
-  G.food-=d.cost;G.ucd[i]=d.cd;G.spawned++;const u=mkUnit(d,'A',BASE_X+10);G.allies.push(u);sfx('spawn');
+  G.food-=d.cost;G.ucd[i]=d.cd;G.spawned++;ust(d.id).spawned++;const u=mkUnit(d,'A',BASE_X+10);G.allies.push(u);sfx('spawn');
 }
 
 // ───────── 갱신 ─────────
@@ -573,7 +578,8 @@ function update(dt){
       G.fx.push({k:'smash',x:th.x-90,y:GROUND,r:TB.slamRange*.8,t:.5,T:.5});
       for(const a of G.allies){if(a.dead)continue;const d=th.x-a.x;if(d<TB.slamRange&&d>-40){dmg(a,TB.slamDmg,th);a.x=Math.max(BASE_X+20,a.x-TB.slamPush);a.stun=Math.max(a.stun,.6)}}}
     if(!th.half&&th.hp<th.max/2){th.half=1;say(th,'내가 직접 끝내주마.',2.4);for(let i=0;i<4;i++)spawnFoe('outrider')}}
-  for(const u of G.allies)if(!u.hero&&!u.dead)unitAI(u,dt);
+  for(const u of G.allies)if(!u.hero&&!u.dead){ust(u.def.id).alive+=dt;unitAI(u,dt)}
+  for(const e of G.enemies)if(!e.dead&&e.slow>0)ust('spiderman').slowT+=dt;
   for(const u of G.enemies)if(!u.dead)unitAI(u,dt);
   for(const s of[G.base,G.ship])if(s)s.hit=Math.max(0,s.hit-dt);
   updateProjs(dt);updateFx(dt);
@@ -631,7 +637,7 @@ function stratPick(S){
 window.simGame=function(si,S,opt){
   SIM_STRAT=S;DBG.bot=true;newGame(si);G.gauge=opt.gauge?BAL.gaunt.need:0;
   let over=0;while(G.t<opt.maxT&&STATE==='play'){step(STEP);if(G.food>=G.foodMax)over+=STEP}
-  return{win:G.result==='clear',t:G.t,base:G.base.hp/G.base.max,spawned:G.spawned,over,snaps:G.snaps,kills:G.kills,units:(G.sList||[]).map(i=>UNITS[i].name),inc:G.inc,start:BAL.food.start};
+  return{win:G.result==='clear',t:G.t,base:G.base.hp/G.base.max,spawned:G.spawned,over,snaps:G.snaps,kills:G.kills,units:(G.sList||[]).map(i=>UNITS[i].name),inc:G.inc,start:BAL.food.start,ust:G.ust};
 };
 // 테스트용 자동 플레이 (#bot)
 function bot(dt){

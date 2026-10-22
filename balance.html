@@ -83,8 +83,8 @@ const L={hp:'체력',atk:'공격력',rate:'공격 간격(초)',range:'사거리'
   name:'이름',cls:'직업',cost:'식량',aoe:'범위 반경',slow:'둔화(초)',multi:'동시 공격',unlock:'해금 스테이지',food:'처치 식량',gauge:'건틀릿 게이지',
   pushCd:'염력 간격(초)',push:'밀어내는 거리',pushRange:'염력 범위',slamCd:'내려찍기 간격',slamDmg:'내려찍기 피해',slamRange:'내려찍기 범위',slamPush:'밀어내는 거리',
   sub:'부제',foodRate:'초당 식량',shipHp:'군함 체력',int0:'생성 간격 시작',int1:'생성 간격 2분 후',mob:'잡몹 수 배율',foodMul:'잡몹 식량 배율',
-  outrider:'아웃라이더 비율',chitauri:'치타우리 비율',brute:'고릴라 비율',boss:'보스',bossTime:'보스 등장(초)',bossShip:'보스 등장(군함 체력%)',orderGap:'블랙 오더 출격 간격(초)',shieldPct:'방어막 피해 감소%',bonus:'처치 즉시 식량 보너스',pushback:'등장 충격파 밀어내기',bossMobs:'보스 동반 잡몹 수',orderHp:'블랙 오더 체력%',throwCd:'창 던지기 간격(초)',throwPct:'창 피해(최대 체력%)',throwRange:'창 사거리'};
-const GROUPS=[['cap','캡틴 아메리카'],['base','어벤져스 건물'],['food','식량'],['shield','방패 던지기 (Q)'],['thunder','묠니르 번개 (W)'],['gaunt','인피니티 건틀릿 (E)'],['boss','스테이지 보스 (S1~S4)'],['final','FINAL 스테이지']];
+  outrider:'아웃라이더 비율',chitauri:'치타우리 비율',brute:'고릴라 비율',boss:'보스',bossTime:'보스 등장(초)',bossShip:'보스 등장(군함 체력%)',orderGap:'블랙 오더 출격 간격(초)',shieldPct:'방어막 피해 감소%',bonus:'처치 즉시 식량 보너스',pushback:'등장 충격파 밀어내기',bossMobs:'보스 동반 잡몹 수',orderHp:'블랙 오더 체력%',throwCd:'창 던지기 간격(초)',throwPct:'창 피해(최대 체력%)',throwRange:'창 사거리',slowMove:'이동 속도 감소%',slowAtk:'공격 속도 감소%'};
+const GROUPS=[['cap','캡틴 아메리카'],['base','어벤져스 건물'],['food','식량'],['shield','방패 던지기 (Q)'],['thunder','묠니르 번개 (W)'],['gaunt','인피니티 건틀릿 (E)'],['boss','스테이지 보스 (S1~S4)'],['debuff','둔화 (스파이더맨 거미줄)'],['final','FINAL 스테이지']];
 const NOTES={gaunt:'적을 잡을 때 적 표의 「건틀릿 게이지」만큼 차고 다음 스테이지로 이월. 일반 적은 최대 체력의 pct%, 보스·타노스는 bossPct%만큼 체력 감소.',
   boss:'보스(블랙 오더·타노스 포함)가 나타나면 충격파로 아군 전원을 pushback만큼 뒤로 밀어냄(피해 없음). S1~S4 군함은 보스를 쓰러뜨릴 때까지 방어막으로 피해가 shieldPct%만큼 줄어듦. 보스를 잡으면 방어막이 꺼지고 식량 보너스를 바로 받음 (보스 처치 식량과 별도).',
   final:'FINAL의 블랙 오더는 적 표 체력의 orderHp%로 출격. 블랙 오더 4명(컬→프록시마→코르버스→에보니)이 스테이지 표의 「보스 등장(초)」부터 이 간격으로 출격, 모두 쓰러지면 타노스 등판.'};
@@ -109,17 +109,17 @@ function build(){
   h+='</div></section>';
   // 유닛
   const uk=['name','cls','cost','cd','hp','atk','rate','range','spd','aoe','slow','multi','unlock'];
-  // 효율 지표: 전투력 = 체력×DPS, 첫 번째 유닛(호크아이)을 기준 1로
-  const pw=u=>u.hp*u.atk/u.rate*(u.multi||1),ref=B.units[0],refP=pw(ref);
+  // 효율 지표: 전투력 = 체력×DPS. 기준 유닛 = 전사는 토르, 원거리는 호크아이 (효율 A·B는 각자 역할 기준 유닛 = 1)
+  const pw=u=>u.hp*u.atk/u.rate*(u.multi||1),REF={W:B.units.find(u=>u.id==='thor')||B.units[0],R:B.units.find(u=>u.id==='hawkeye')||B.units[0]};
   h+='<section><h2>어벤져스 유닛</h2><p class="note">카드 순서 = 숫자키 1~9. 해금 스테이지 1 = 처음부터. 범위 반경·둔화·동시 공격은 0이면 없음 (공격 방식 자체는 코드에 고정: 헐크·스트레인지 범위, 스파이더맨 둔화, 스칼렛 위치 동시 공격).</p>'+
-    `<p class="note"><b>효율 지표</b> — 전투력 = 체력×DPS, 기준 = ${ref.name}(=1). <b>효율 A</b> = 전투력÷비용 (근접전처럼 한 줄로 싸울 때), <b>효율 B</b> = 전투력÷비용² (원거리처럼 다 같이 쏠 때 — 싼 유닛을 많이 뽑으면 제곱으로 강해짐).<br>
-    <b>적정 판정</b> — 역할마다 기준선이 다름: 비용이 기준의 k배일 때 전사는 <b>근접 기준</b> 전투력 k<sup>a</sup>배, 원거리는 <b>원거리 기준</b> k<sup>b</sup>배 (a = <input data-rolex="W" type="number" step="0.1" value="${ROLEX.W}" style="width:52px">, b = <input data-rolex="R" type="number" step="0.1" value="${ROLEX.R}" style="width:52px"> — 기본 1과 2). 기준선의 ${BAND[0]}~${BAND[1]}배면 적정, 아래면 약함 ▼, 위면 강함 ▲.<br>
+    `<p class="note"><b>효율 지표</b> — 전투력 = 체력×DPS, 기준 유닛(=1) = 전사는 <b>${REF.W.name}</b>, 원거리는 <b>${REF.R.name}</b>. <b>효율 A</b> = 전투력÷비용 (근접전처럼 한 줄로 싸울 때), <b>효율 B</b> = 전투력÷비용² (원거리처럼 다 같이 쏠 때 — 싼 유닛을 많이 뽑으면 제곱으로 강해짐).<br>
+    <b>적정 판정</b> — 역할마다 기준선이 다름: 비용이 같은 역할 기준 유닛의 k배일 때 전사는 <b>근접 기준</b> 전투력 k<sup>a</sup>배, 원거리는 <b>원거리 기준</b> k<sup>b</sup>배 (a = <input data-rolex="W" type="number" step="0.1" value="${ROLEX.W}" style="width:52px">, b = <input data-rolex="R" type="number" step="0.1" value="${ROLEX.R}" style="width:52px"> — 기본 1과 2). 기준선의 ${BAND[0]}~${BAND[1]}배면 적정, 아래면 약함 ▼, 위면 강함 ▲.<br>
     범위·둔화·동시 공격·긴 사거리(맞지 않고 때림)는 이 계산에 안 들어가므로, 그런 능력이 있으면 「약함」이어도 정상일 수 있음 → 아래 시뮬레이터로 확인.</p><div class="wrap"><table><tr>`+
     uk.map(k=>`<th>${L[k]}</th>`).join('')+'<th>DPS<small>공격력÷간격×동시</small></th><th>전투력<small>체력×DPS</small></th><th>효율 A<small>÷비용</small></th><th>효율 B<small>÷비용²</small></th><th>적정 판정<small>역할 기준선 대비</small></th></tr>';
-  B.units.forEach((u,i)=>{const dps=u.atk/u.rate*(u.multi||1),p=pw(u),k=u.cost/ref.cost,ea=p/u.cost/(refP/ref.cost),eb=p/u.cost/u.cost/(refP/ref.cost/ref.cost);
+  B.units.forEach((u,i)=>{const ref=REF[u.cls]||REF.R,refP=pw(ref),dps=u.atk/u.rate*(u.multi||1),p=pw(u),k=u.cost/ref.cost,ea=p/u.cost/(refP/ref.cost),eb=p/u.cost/u.cost/(refP/ref.cost/ref.cost);
     // 전사 = 근접 기준(k^a), 원거리 = 원거리 기준(k^b)
     const role=u.cls==='W'?'근접 기준':'원거리 기준',ratio=p/(refP*Math.pow(k,ROLEX[u.cls]||1));let verdict;
-    if(i===0)verdict='<span style="color:var(--dim)">기준 유닛</span>';
+    if(u===ref)verdict='<span style="color:var(--dim)">기준 유닛</span>';
     else if(ratio<BAND[0])verdict=`<span style="color:#ff8a8a">${role} ${r1(ratio)}배 · 약함 ▼</span>`;
     else if(ratio>BAND[1])verdict=`<span style="color:#ffcf3a">${role} ${r1(ratio)}배 · 강함 ▲</span>`;
     else verdict=`<span style="color:#7dff5a">${role} ${r1(ratio)}배 · 적정</span>`;
@@ -185,6 +185,17 @@ function cell(rs,tMin,tMax){
     `<small>식량 수입 ${Math.round(avg(rs.map(r=>r.start+r.inc.pass+r.inc.mob)))} (시작 ${rs[0].start} + 매초 ${Math.round(avg(rs.map(r=>r.inc.pass)))} + 잡몹 ${Math.round(avg(rs.map(r=>r.inc.mob)))}) · 보스 +${Math.round(avg(rs.map(r=>r.inc.boss)))}</small>`+
     (rs[0].units.length?`<small>${rs[0].units.join('·')}</small>`:'')+'</td>';
 }
+// 유닛 실측: 돌린 모든 판을 합쳐 유닛별 실제 성적 — 범위·동시 공격·둔화의 실제 가치를 숫자로 확인
+function unitTable(rs){
+  const T={};for(const r of rs)for(const id in r.ust||{}){const a=T[id]||(T[id]={dmg:0,hits:0,atks:0,alive:0,taken:0,spawned:0,slowT:0});for(const k in a)a[k]+=r.ust[id][k]}
+  const rows=B.units.filter(u=>T[u.id]&&T[u.id].spawned).map(u=>{const a=T[u.id],food=a.spawned*u.cost;
+    return `<tr><td class="k ${u.cls}">${u.name}</td><td>${a.spawned}</td><td>${r1(a.alive/a.spawned)}초</td><td class="calc">${r1(a.dmg/Math.max(1,a.alive))}</td><td class="calc">${r1(u.atk/u.rate*(u.multi||1))}</td>`+
+      `<td class="calc">${a.atks?r1(a.hits/a.atks):'-'}</td><td class="calc"><b>${r1(a.dmg/food)}</b></td><td class="calc">${r1(a.taken/food)}</td><td class="calc">${u.slow?r1(a.slowT/a.spawned)+'초':''}</td></tr>`});
+  if(!rows.length)return '';
+  return `<h2 style="margin-top:14px">유닛 실측 <small style="font-size:14px;color:var(--dim)">돌린 모든 판 합계</small></h2><p class="note">실전 DPS = 실제로 준 피해 ÷ 살아 있던 시간 (표의 DPS보다 높으면 범위·동시 공격이 여러 명을 맞힌 것). 공격당 맞힌 수 = 범위·동시 공격의 실제 효과.
+    <b>식량당 피해</b> = 이 유닛에 쓴 식량 1당 적에게 준 피해 — 같은 역할끼리 비슷하면 공정. 식량당 받아낸 피해 = 탱커 가치. 둔화 = 한 마리가 적을 둔화시킨 시간 합(둔화는 이동 속도만 절반).</p>
+    <table><tr><th>유닛</th><th>생산</th><th>평균 생존</th><th>실전 DPS</th><th>표 DPS</th><th>공격당 맞힌 수</th><th>식량당 피해</th><th>식량당 받아낸 피해</th><th>둔화</th></tr>${rows.join('')}</table>`;
+}
 $('simRun').onclick=async()=>{
   if(simBusy)return;const stages=checked('st').map(Number),strats=checked('sg').map(i=>STRATS[i]),N=Math.max(1,+$('simN').value||1);
   const tMin=+$('tMin').value,tMax=+$('tMax').value,opt={gauge:$('simGauge').checked,maxT:+$('maxT').value||400},ids=checked('su');
@@ -193,7 +204,7 @@ $('simRun').onclick=async()=>{
   let eng;try{eng=await loadEngine()}catch(e){$('simProg').textContent=e.message;simBusy=false;return}
   const R=strats.map(()=>stages.map(()=>[]));
   const draw=()=>{$('simOut').innerHTML='<table><tr><th>전략</th>'+stages.map(i=>`<th>${B.stages[i].name}<small>${B.stages[i].sub}</small></th>`).join('')+'</tr>'+
-    strats.map((s,a)=>`<tr><td class="k">${s.name}</td>${stages.map((si,b)=>cell(R[a][b],tMin,tMax)).join('')}</tr>`).join('')+'</table>'};
+    strats.map((s,a)=>`<tr><td class="k">${s.name}</td>${stages.map((si,b)=>cell(R[a][b],tMin,tMax)).join('')}</tr>`).join('')+'</table>'+unitTable(R.flat(2))};
   const total=strats.length*stages.length*N;let done=0;const t0=performance.now();
   outer:for(let a=0;a<strats.length;a++)for(let b=0;b<stages.length;b++)for(let n=0;n<N;n++){
     if(simStop)break outer;
