@@ -232,8 +232,8 @@ window.BALANCE_DEFAULT = {
     },
     "proxima": {
       "name": "프록시마 미드나잇",
-      "hp": 1100,
-      "atk": 55,
+      "hp": 3300,
+      "atk": 30,
       "rate": 1,
       "range": 72,
       "spd": 100,
@@ -243,8 +243,8 @@ window.BALANCE_DEFAULT = {
     },
     "corvus": {
       "name": "콜버스 글레이브",
-      "hp": 1300,
-      "atk": 60,
+      "hp": 3700,
+      "atk": 28,
       "rate": 0.9,
       "range": 64,
       "spd": 100,
@@ -254,7 +254,7 @@ window.BALANCE_DEFAULT = {
     },
     "ebony": {
       "name": "에보니 모",
-      "hp": 1100,
+      "hp": 3200,
       "atk": 28,
       "rate": 1.4,
       "range": 260,
@@ -370,6 +370,7 @@ window.BALANCE_DEFAULT = {
     }
   ],
   "final": {
-    "orderGap": 25
+    "orderGap": 25,
+    "orderHp": 60
   }
 };

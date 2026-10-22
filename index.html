@@ -554,7 +554,8 @@ function update(dt){
   // 보스
   if(G.final){
     const gap=BAL.final.orderGap;
-    while(G.orderN<ORDER.length&&G.t>=st.bossTime+G.orderN*gap){G.order.push(spawnFoe(ORDER[G.orderN],true));G.orderN++}
+    // FINAL 블랙 오더는 체력 orderHp%로 출격 (S2~S4 보스전용 체력과 따로 조절)
+    while(G.orderN<ORDER.length&&G.t>=st.bossTime+G.orderN*gap){const o=spawnFoe(ORDER[G.orderN],true);o.max=o.hp=Math.round(o.hp*BAL.final.orderHp/100);G.order.push(o);G.orderN++}
     if(G.orderN===ORDER.length&&!G.thanos&&G.order.every(e=>e.dead))spawnThanos();
   }else if(!G.bossOut&&(G.t>=st.bossTime||G.ship.hp/G.ship.max*100<=st.bossShip)){G.bossOut=1;G.boss=spawnFoe(st.boss,true)}
   // 타노스
@@ -771,7 +772,7 @@ function bar(x,y,w,h,r,c1,fromRight){ctx.fillStyle=OUT;rr(x-3,y-3,w+6,h+6,6);ctx
 function foeBar(){
   if(!G.final)return{r:G.ship.hp/G.ship.max,v:Math.ceil(G.ship.hp)};
   if(G.thanos)return{r:G.thanos.hp/G.thanos.max,v:Math.ceil(G.thanos.hp)};
-  let hp=0,mx=0;ORDER.forEach((id,i)=>{const m=FOES[id].hp;mx+=m;hp+=G.order[i]?G.order[i].hp:m});return{r:hp/mx,v:'블랙 오더 '+G.order.filter(e=>!e.dead).length+(G.orderN<4?'+'+(4-G.orderN):'')}
+  let hp=0,mx=0;ORDER.forEach((id,i)=>{const m=Math.round(FOES[id].hp*BAL.final.orderHp/100);mx+=m;hp+=G.order[i]?G.order[i].hp:m});return{r:hp/mx,v:'블랙 오더 '+G.order.filter(e=>!e.dead).length+(G.orderN<4?'+'+(4-G.orderN):'')}
 }
 function drawHUD(){
   const b=G.base,fb=foeBar();
