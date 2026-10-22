@@ -771,8 +771,9 @@ function bar(x,y,w,h,r,c1,fromRight){ctx.fillStyle=OUT;rr(x-3,y-3,w+6,h+6,6);ctx
   const fw=w*clamp(r,0,1);ctx.fillStyle=c1;ctx.fillRect(fromRight?x+w-fw:x,y,fw,h);ctx.fillStyle='rgba(255,255,255,.25)';ctx.fillRect(fromRight?x+w-fw:x,y,fw,h/3)}
 function foeBar(){
   if(!G.final)return{r:G.ship.hp/G.ship.max,v:Math.ceil(G.ship.hp)};
+  // FINAL은 타노스 체력만 표시 (등판 전에는 가득 찬 상태)
   if(G.thanos)return{r:G.thanos.hp/G.thanos.max,v:Math.ceil(G.thanos.hp)};
-  let hp=0,mx=0;ORDER.forEach((id,i)=>{const m=Math.round(FOES[id].hp*BAL.final.orderHp/100);mx+=m;hp+=G.order[i]?G.order[i].hp:m});return{r:hp/mx,v:'블랙 오더 '+G.order.filter(e=>!e.dead).length+(G.orderN<4?'+'+(4-G.orderN):'')}
+  return{r:1,v:FOES.thanos.hp};
 }
 function drawHUD(){
   const b=G.base,fb=foeBar();
