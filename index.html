@@ -842,6 +842,9 @@ function drawHelp(){
 }
 
 // ───────── 그리기: 타이틀·스테이지 선택·결과 ─────────
+// 진행 초기화: 클리어 기록·건틀릿 이월 게이지를 지우고 STAGE 1만 열린 상태로
+const RSTBTN={x:1100,y:660,w:160,h:36};
+function resetProgress(){if(!confirm('진행 기록을 초기화할까요? STAGE 1만 열린 처음 상태로 돌아갑니다.'))return;try{localStorage.removeItem('endgame_cleared');localStorage.removeItem('endgame_gaugeAt')}catch(e){}cleared=0;gaugeAt=[0];SEL=0}
 const SELBTN={x:540,y:410,w:200,h:48};
 function toSelect(){paused=false;stopVoice();pauseBgm();STATE='select';SEL=Math.min(cleared,4)}
 const BALBTN={x:1100,y:676,w:164,h:34};
@@ -870,6 +873,7 @@ function drawSelect(){
     ctx.restore()});
   const g=gaugeAt[SEL]||0;txt('이 스테이지 시작 건틀릿 게이지 '+Math.floor(g/BAL.gaunt.need*100)+'%',640,530,18,'#ffd23a','center');
   txt('← → 선택   SPACE 시작',640,575,22,'#fff','center');
+  ctx.save();ctx.lineWidth=3;ctx.strokeStyle=OUT;rr(RSTBTN.x,RSTBTN.y,RSTBTN.w,RSTBTN.h,8);P('#3a2f2a');ctx.restore();txt('↺ 진행 초기화',RSTBTN.x+RSTBTN.w/2,RSTBTN.y+RSTBTN.h/2,16,'#ffb3b3','center',UI,0);
   btn(1236,30,'?');btn(1188,30,muted?'×':'♪');
 }
 function drawResult(){
@@ -939,6 +943,7 @@ cv.addEventListener('pointerdown',e=>{
   if(Math.hypot(mx-1236,my-30)<20){help=true;return}
   if(Math.hypot(mx-1188,my-30)<20){toggleMute();return}
   if(STATE==='title'&&mx>BALBTN.x&&mx<BALBTN.x+BALBTN.w&&Math.abs(my-BALBTN.y)<BALBTN.h/2){location.href='balance.html';return}
+  if(STATE==='select'&&mx>RSTBTN.x&&mx<RSTBTN.x+RSTBTN.w&&my>RSTBTN.y&&my<RSTBTN.y+RSTBTN.h){resetProgress();return}
   if(STATE==='select'){STAGES.forEach((s,i)=>{const q=selRect(i);if(mx>q.x&&mx<q.x+q.w&&my>q.y&&my<q.y+q.h&&(i<=cleared||DBG.all)){if(SEL===i)startStage(i);else SEL=i}});return}
   if(STATE==='play'&&paused){if(mx>SELBTN.x&&mx<SELBTN.x+SELBTN.w&&my>SELBTN.y&&my<SELBTN.y+SELBTN.h)toSelect();return}
   if(STATE==='play'&&!G.intro){
