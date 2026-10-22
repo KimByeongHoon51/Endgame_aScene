@@ -3,7 +3,7 @@
 window.BALANCE_DEFAULT = {
   "cap": { "hp": 400, "atk": 16, "rate": 0.55, "range": 48, "spd": 170, "revive": 15, "regen": 6 },
   "base": { "hp": 2000 },
-  "food": { "start": 20, "max": 300 },
+  "food": { "start": 50, "max": 300 },
   "shield": { "cd": 20, "dmg": 60, "dist": 480 },
   "thunder": { "cd": 40, "dmg": 110, "stun": 1.5, "front": 480, "back": 120 },
   "gaunt": { "need": 100, "pct": 50, "bossPct": 20 },
@@ -30,7 +30,7 @@ window.BALANCE_DEFAULT = {
     "thanos":   { "name": "타노스",            "hp": 4000, "atk": 45, "rate": 1.8, "range": 80,  "spd": 12, "food": 0,  "gauge": 0,   "aoe": 70, "slamCd": 9, "slamDmg": 45, "slamRange": 220, "slamPush": 50 }
   },
   "stages": [
-    { "name": "STAGE 1", "sub": "무너진 기지",      "foodRate": 2,   "shipHp": 10500, "int0": 3.0, "int1": 1.8, "mob": 1,      "foodMul": 1,      "outrider": 1, "chitauri": 0, "brute": 0, "boss": "cull",    "bossTime": 70, "bossShip": 60 },
+    { "name": "STAGE 1", "sub": "무너진 기지",      "foodRate": 2,   "shipHp": 2000, "int0": 3.0, "int1": 1.8, "mob": 1,      "foodMul": 1,      "outrider": 1, "chitauri": 0, "brute": 0, "boss": "cull",    "bossTime": 70, "bossShip": 60 },
     { "name": "STAGE 2", "sub": "치타우리 강하",    "foodRate": 2.2, "shipHp": 13000, "int0": 3.0, "int1": 1.8, "mob": 1.1,    "foodMul": 1.1,    "outrider": 3, "chitauri": 2, "brute": 0, "boss": "proxima", "bossTime": 70, "bossShip": 60 },
     { "name": "STAGE 3", "sub": "지상군 총공세",    "foodRate": 2.5, "shipHp": 15000, "int0": 3.0, "int1": 1.8, "mob": 1.21,   "foodMul": 1.21,   "outrider": 3, "chitauri": 2, "brute": 1, "boss": "corvus",  "bossTime": 70, "bossShip": 60 },
     { "name": "STAGE 4", "sub": "블랙 오더",        "foodRate": 2.8, "shipHp": 17500, "int0": 3.0, "int1": 1.8, "mob": 1.331,  "foodMul": 1.331,  "outrider": 4, "chitauri": 3, "brute": 1, "boss": "ebony",   "bossTime": 70, "bossShip": 60 },
